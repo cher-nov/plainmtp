@@ -1,0 +1,30 @@
+# Reference links:
+# https://github.com/github/gitignore/blob/d0b80a46/VisualStudio.gitignore
+
+# Common extensions
+
+*.exe
+*.dll
+*.lib
+*.obj
+*.pdb
+
+*.bak
+*.~*
+~*
+*.lnk
+Thumbs.db
+Desktop.ini
+
+# Visual Studio
+
+.vs/
+
+Win32/
+x64/
+
+Debug/
+Release/
+
+*.user
+*.suo
