@@ -11,6 +11,7 @@
 */
 
 #include <stddef.h>
+#include <time.h>
 
 /* Prior to C99, there were no 64-bit integer types, so their support in C95 is compiler-dependent.
   Official website for this library: http://www.azillionmonkeys.com/qed/ninja.html */
@@ -77,6 +78,9 @@ typedef struct zz_plainmtp_image_s {
 
   /* Either a file name or any other descriptive string that can be used as such. Can be NULL. */
   wchar_t* name;
+
+  /* Date/time in standard portable C format. If information is not available, contains zeros. */
+  struct tm datetime;
 } plainmtp_image_s;
 
 

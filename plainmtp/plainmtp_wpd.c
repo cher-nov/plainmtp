@@ -218,6 +218,9 @@ static IPortableDeviceKeyCollection* make_values_request(void) {
 
     hr = INVOKE_1( result, ->Add, &WPD_OBJECT_NAME );
     if (FAILED(hr)) { goto failed; }
+
+    hr = INVOKE_1( result, ->Add, &WPD_OBJECT_DATE_MODIFIED );
+    if (FAILED(hr)) { goto failed; }
   }
 
   return result;
@@ -481,10 +484,34 @@ static plainmtp_bool obtain_object_image( plainmtp_image_s* object,
   IPortableDeviceValues* values
 ) {
   HRESULT hr;
+  PROPVARIANT propvar;
+  SYSTEMTIME systime;
   plainmtp_image_s result = {NULL};
 {
   hr = INVOKE( values, ->GetStringValue ), &WPD_OBJECT_PERSISTENT_UNIQUE_ID, &result.id );
   if (FAILED(hr)) { return PLAINMTP_FALSE; }
+
+  PropVariantInit( &propvar );
+  hr = INVOKE( values, ->GetValue ), &WPD_OBJECT_DATE_MODIFIED, &propvar );
+
+  if ( SUCCEEDED(hr)
+    && (V_VT(&propvar) == VT_DATE)
+    && VariantTimeToSystemTime(propvar.date, &systime)
+  ) {
+    result.datetime.tm_year = systime.wYear - 1900;
+    result.datetime.tm_mon = systime.wMonth - 1;
+    result.datetime.tm_mday = systime.wDay;
+    result.datetime.tm_hour = systime.wHour;
+    result.datetime.tm_min = systime.wMinute;
+    result.datetime.tm_sec = systime.wSecond;
+    result.datetime.tm_wday = systime.wDayOfWeek;
+    result.datetime.tm_yday = -1;  /* To be adjusted by mktime() call. */
+    (void)mktime( &result.datetime );
+
+    result.datetime.tm_isdst = -1;  /* DST information is not available. */
+  }
+
+  (void)PropVariantClear( &propvar );
 
   hr = INVOKE( values, ->GetStringValue ), &WPD_OBJECT_ORIGINAL_FILE_NAME, &result.name );
   if (SUCCEEDED(hr)) { goto quit; }

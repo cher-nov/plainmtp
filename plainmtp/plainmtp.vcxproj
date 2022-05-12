@@ -109,7 +109,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Lib>
-      <AdditionalDependencies>PortableDeviceGUIDs.lib;Propsys.lib;ole32.lib</AdditionalDependencies>
+      <AdditionalDependencies>PortableDeviceGUIDs.lib;Propsys.lib;ole32.lib;OleAut32.lib</AdditionalDependencies>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -138,7 +138,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Lib>
-      <AdditionalDependencies>PortableDeviceGUIDs.lib;Propsys.lib;ole32.lib</AdditionalDependencies>
+      <AdditionalDependencies>PortableDeviceGUIDs.lib;Propsys.lib;ole32.lib;OleAut32.lib</AdditionalDependencies>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -163,7 +163,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Lib>
-      <AdditionalDependencies>PortableDeviceGUIDs.lib;Propsys.lib;ole32.lib</AdditionalDependencies>
+      <AdditionalDependencies>PortableDeviceGUIDs.lib;Propsys.lib;ole32.lib;OleAut32.lib</AdditionalDependencies>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -192,7 +192,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Lib>
-      <AdditionalDependencies>PortableDeviceGUIDs.lib;Propsys.lib;ole32.lib</AdditionalDependencies>
+      <AdditionalDependencies>PortableDeviceGUIDs.lib;Propsys.lib;ole32.lib;OleAut32.lib</AdditionalDependencies>
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
