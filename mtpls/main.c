@@ -86,7 +86,15 @@ static int command_list( plainmtp_cursor_s* cursor, plainmtp_device_s* device ) 
   PUT_TEXT( "\n%ls\t: %ls\n\n"), WSNN(image->name), WSNN(image->id) );
 
   while ( plainmtp_cursor_select(cursor, device) ) {
-    PUT_TEXT( "  %ls :\t%ls\n"), WSNN(image->id), WSNN(image->name) );
+    char strftime_result[] = "0000-00-00 00:00:00";  /* We need to refresh it every iteration. */
+
+    if (image->datetime.tm_mday != 0) {
+      /* NB: Format string "%F %T" is C99, so we had to write an equivalent one here. */
+      (void)strftime( strftime_result, sizeof(strftime_result), "%Y-%m-%d %H:%M:%S",
+        &image->datetime );
+    }
+
+    PUT_TEXT( "  %ls :\t%s\t%ls\n"), WSNN(image->id), strftime_result, WSNN(image->name) );
     ++count;
   }
 
