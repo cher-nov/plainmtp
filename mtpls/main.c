@@ -14,6 +14,7 @@
 #define PATH_DELIMITER (L'\\')
 
 #define PUT_LINE(string) (void)fprintf( stderr, "%s\n", string )
+#define PUT_CHAR(symbol) (void)fputc( symbol, stderr )
 #define PUT_TEXT(format) (void)fprintf( stderr, format
 
 static const wchar_t* const empty_wstr = L"";
@@ -75,7 +76,7 @@ static int command_enumerate( plainmtp_context_s* context ) {
     if (registry->ids != NULL) { PUT_TEXT( "\n\t%ls\n"), WSNN(registry->ids[i]) ); }
   }
 
-  PUT_LINE("");
+  PUT_CHAR('\n');
   return EXIT_SUCCESS;
 }}
 
@@ -113,7 +114,7 @@ static void* CB_receive_file( void* prior_chunk, size_t size, void* user_state )
     (unsigned long)size );
 
   if (prior_chunk == NULL) {
-    PUT_LINE("");
+    PUT_CHAR('\n');
     return malloc( size );
   }
 
@@ -155,7 +156,7 @@ static void* CB_transfer_file( void* prior_chunk, size_t size, void* user_state 
     (unsigned long)size );
 
   if (prior_chunk == NULL) {
-    PUT_LINE("");
+    PUT_CHAR('\n');
     prior_chunk = malloc( size );
     if (prior_chunk == NULL) {
       PUT_LINE( "  failed to allocate chunk memory" );
