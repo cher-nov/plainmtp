@@ -68,14 +68,14 @@ static int command_enumerate( plainmtp_context_s* context ) {
 {
   PUT_TEXT( "Devices available: %lu\n"), (unsigned long)registry->count );
   for (i = 0; i < registry->count; ++i) {
-    PUT_TEXT( "\n%lu\t%-31ls %-31ls %-31ls\n"), (unsigned long)i, WSNN(registry->names[i]),
-      WSNN(registry->vendors[i]), WSNN(registry->strings[i]) );
-
-    if (registry->ids[i] != NULL) {
-      PUT_TEXT( "%ls\n"), registry->ids[i] );
-    }
+    PUT_TEXT( "\n%lu\t"), (unsigned long)i );
+    if (registry->names != NULL) { PUT_TEXT( "%-31ls "), WSNN(registry->names[i]) ); }
+    if (registry->vendors != NULL) { PUT_TEXT( "%-31ls "), WSNN(registry->vendors[i]) ); }
+    if (registry->strings != NULL) { PUT_TEXT( "%-31ls "), WSNN(registry->strings[i]) ); }
+    if (registry->ids != NULL) { PUT_TEXT( "\n\t%ls\n"), WSNN(registry->ids[i]) ); }
   }
 
+  PUT_LINE("");
   return EXIT_SUCCESS;
 }}
 
