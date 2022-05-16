@@ -16,6 +16,13 @@
 #include <PortableDeviceApi.h>
 #include <PortableDevice.h>
 
+#if defined(_MSC_VER) && !defined(PLAINMTP_NO_PRAGMA_LINKAGE)
+  #pragma comment( lib, "PortableDeviceGUIDs" )
+  #pragma comment( lib, "Propsys" )
+  #pragma comment( lib, "ole32" )
+  #pragma comment( lib, "OleAut32" )
+#endif
+
 #include "../3rdparty/stager.h"
 
 /* TODO: WPD randomly fails if some other process also uses the device. How should we handle it?
