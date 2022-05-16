@@ -91,9 +91,6 @@
       <LanguageStandard_C>Default</LanguageStandard_C>
       <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
-    <Lib>
-      <AdditionalDependencies>PortableDeviceGUIDs.lib;Propsys.lib;ole32.lib;OleAut32.lib</AdditionalDependencies>
-    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -106,9 +103,6 @@
       <LanguageStandard_C>Default</LanguageStandard_C>
       <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
-    <Lib>
-      <AdditionalDependencies>PortableDeviceGUIDs.lib;Propsys.lib;ole32.lib;OleAut32.lib</AdditionalDependencies>
-    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -121,9 +115,6 @@
       <LanguageStandard_C>Default</LanguageStandard_C>
       <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
-    <Lib>
-      <AdditionalDependencies>PortableDeviceGUIDs.lib;Propsys.lib;ole32.lib;OleAut32.lib</AdditionalDependencies>
-    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -136,9 +127,6 @@
       <LanguageStandard_C>Default</LanguageStandard_C>
       <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
-    <Lib>
-      <AdditionalDependencies>PortableDeviceGUIDs.lib;Propsys.lib;ole32.lib;OleAut32.lib</AdditionalDependencies>
-    </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="plainmtp_wpd.c" />
