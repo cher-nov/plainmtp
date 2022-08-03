@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_workspace_file>
+	<Workspace title="mtp_work">
+		<Project filename="mtpls/mtpls.cbp">
+			<Depends filename="plainmtp/plainmtp.cbp" />
+		</Project>
+		<Project filename="plainmtp/plainmtp.cbp" />
+	</Workspace>
+</CodeBlocks_workspace_file>

@@ -6,6 +6,14 @@
 
 #include "../plainmtp/plainmtp.h"
 
+/* https://stackoverflow.com/questions/1848700/biggest-integer-that-can-be-stored-in-a-double
+  NB: The C89 standard doesn't guarantee that 'double' type has the IEEE-754 'binary64' format, but
+  that is the most common case, and I hope that even if someone will dare to compile this for some
+  cursed target platform where this numeric literal is not even representable as a 'long double',
+  the compiler will be able at least to cry you a river about it. Unfortunately, C95 doesn't have
+  static asserts to check that 'INTEGER_RANGE_754B64-1 < INTEGER_RANGE_754B64' is satisfied. */
+#define INTEGER_RANGE_754B64 (9007199254740992.L)  /* 2 ^ 53 (note: no mantissa, only exponent) */
+
 #define COMMAND_ENUMERATE (L'e')
 #define COMMAND_LIST (L'l')
 #define COMMAND_RECEIVE (L'r')
@@ -16,6 +24,12 @@
 #define PUT_LINE(string) (void)fprintf( stderr, "%s\n", string )
 #define PUT_CHAR(symbol) (void)fputc( symbol, stderr )
 #define PUT_TEXT(format) (void)fprintf( stderr, format
+
+#ifndef  _WIN32
+extern FILE* _wfopen( const wchar_t* filename, const wchar_t* mode );
+extern int _fseeki64( FILE* stream, int64_t offset, int origin );
+extern int64_t _ftelli64( FILE* stream );
+#endif
 
 static const wchar_t* const empty_wstr = L"";
 #define WSNN(string) ( (string) != NULL ? (string) : empty_wstr )
@@ -110,7 +124,8 @@ static int command_list( plainmtp_cursor_s* cursor, plainmtp_device_s* device ) 
 
 static void* CB_receive_file( void* chunk, size_t size, void* file ) {
 {
-  PUT_TEXT( "> chunk: %p\tfile: %p\tsize: %-10lu\r"), chunk, file, (unsigned long)size );
+  PUT_TEXT( "> file: %p    chunk: %p    size: %s%-16.0Lf\r"), file, chunk,
+    (size > INTEGER_RANGE_754B64) ? "~" : "", (long double)size );
 
   if (size == 0) {
     PUT_LINE( "\n--" );
@@ -159,7 +174,8 @@ static int command_receive( plainmtp_cursor_s* cursor, plainmtp_device_s* device
 static void* CB_transfer_file( void* chunk, size_t size, void* file ) {
   const plainmtp_bool initial_call = (chunk == NULL);
 {
-  PUT_TEXT( "> chunk: %p\tfile: %p\tsize: %-10lu\r"), chunk, file, (unsigned long)size );
+  PUT_TEXT( "> file: %p    chunk: %p    size: %s%-16.0Lf\r"), file, chunk,
+    (size > INTEGER_RANGE_754B64) ? "~" : "", (long double)size );
 
   if (size == 0) {
     PUT_LINE( "\n--" );
@@ -257,7 +273,7 @@ int wmain( int argc, wchar_t* argv[] ) {
     goto cleanup; \
   } while(0)
 
-  /* NB: Keep in mind the C90 string limit of 509 characters here. */
+  /* NB: Keep in mind the C90 string limit of 509 characters here (-Woverlength-strings in GCC). */
   ASSERT_CLEANUP( --argc <= 0, "no command given"
     "\nusage: mtpls COMMAND ARGUMENTS\n"
     "\nlist of available command lines, with their arguments:\n"
@@ -266,7 +282,7 @@ int wmain( int argc, wchar_t* argv[] ) {
     "\n  r DEVICE_INDEX{:BASE_OBJECT_ID} {DEVICE_PATH} MACHINE_PATH\t- receive file\n"
     "\n  t DEVICE_INDEX{:BASE_OBJECT_ID} DEVICE_PATH MACHINE_PATH\t- transfer file\n"
     "\narguments enclosed in {} are optional"
-    "\nbe careful if your BASE_OBJECT_ID contains spaces"
+    "\nbe careful if your BASE_OBJECT_ID contains spaces or any other shell-specific characters"
   );
 
   context = plainmtp_startup();

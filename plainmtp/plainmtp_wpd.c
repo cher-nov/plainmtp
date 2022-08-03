@@ -609,23 +609,23 @@ plainmtp_cursor_s* plainmtp_cursor_assign( plainmtp_cursor_s* cursor, plainmtp_c
   return cursor;
 }}
 
-plainmtp_cursor_s* plainmtp_cursor_switch( plainmtp_cursor_s* cursor, const wchar_t* object_id,
+plainmtp_cursor_s* plainmtp_cursor_switch( plainmtp_cursor_s* cursor, const wchar_t* entity_id,
   plainmtp_device_s* device
 ) {
   LPWSTR handle;
 {
   assert( device != NULL );
 
-  if (object_id == NULL) {
-    object_id = root_object_id;
+  if (entity_id == NULL) {
+    entity_id = root_object_id;
     handle = NULL;
   } else {
-    handle = make_object_handle_from_puid( device->wpd_content, object_id );
+    handle = make_object_handle_from_puid( device->wpd_content, entity_id );
     if (handle == NULL) { return NULL; }
-    object_id = handle;
+    entity_id = handle;
   }
 
-  cursor = setup_cursor_by_handle( cursor, device, object_id );
+  cursor = setup_cursor_by_handle( cursor, device, entity_id );
   CoTaskMemFree( handle );
   return cursor;
 }}
@@ -725,7 +725,6 @@ plainmtp_bool plainmtp_cursor_select( plainmtp_cursor_s* cursor, plainmtp_device
     RELEASE_INSTANCE( cursor->current_values );
   }
 
-  /* TODO: Implement chunk-based precaching (buffering) of object handles. */
   hr = INVOKE( cursor->enumerator, ->Next ), 1, &handle, NULL );
   if (hr == S_OK) {
     hr = INVOKE( device->wpd_properties, ->GetValues ), handle, device->values_request, &values );

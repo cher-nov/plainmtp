@@ -1,13 +1,27 @@
 # Reference links:
 # https://github.com/github/gitignore/blob/d0b80a46/VisualStudio.gitignore
 
-# Common extensions
+########################################
+# Common files
+########################################
+
+Debug/
+Release/
 
 *.exe
 *.dll
 *.lib
 *.obj
 *.pdb
+
+*.o
+*.a
+*.gcda
+*.gcno
+*.gcov
+
+*.i
+*.s
 
 *.bak
 *.~*
@@ -16,15 +30,30 @@
 Thumbs.db
 Desktop.ini
 
+########################################
 # Visual Studio
+########################################
 
 .vs/
 
 Win32/
 x64/
 
-Debug/
-Release/
-
 *.user
 *.suo
+
+########################################
+# Code::Blocks
+########################################
+
+bin/
+obj/
+
+*.layout
+*.depend
+
+# See 'createDefFile' option: https://wiki.codeblocks.org/index.php/Project_file
+*.def
+
+# http://wiki.codeblocks.org/index.php/Cscope_plugin
+*.cscope_file_list

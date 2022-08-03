@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="plainmtp" />
+		<Option platforms="Unix;Mac;" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin/Debug/plainmtp" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option object_output="obj/Debug/" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+				<Option createDefFile="1" />
+				<Compiler>
+					<Add option="-Og" />
+					<Add option="-g" />
+					<Add option="-Wno-unused-parameter" />
+					<Add option="-Wno-unused-function" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option output="bin/Release/plainmtp" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option object_output="obj/Release/" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+				<Option createDefFile="1" />
+				<Compiler>
+					<Add option="-fomit-frame-pointer" />
+					<Add option="-fexpensive-optimizations" />
+					<Add option="-flto" />
+					<Add option="-O3" />
+					<Add option="-DNDEBUG" />
+				</Compiler>
+				<Linker>
+					<Add option="-flto" />
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-pedantic-errors" />
+			<Add option="-pedantic" />
+			<Add option="-Wextra" />
+			<Add option="-Wall" />
+			<Add option="-std=iso9899:199409" />
+			<Add option="-save-temps=obj" />
+		</Compiler>
+		<Linker>
+			<Add library="mtp" />
+		</Linker>
+		<Unit filename="plainmtp.h">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="plainmtp_libmtp.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="utf8_wchar.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="utf8_wchar.h">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="wcsdup.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="wcsdup.h">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Extensions />
+	</Project>
+</CodeBlocks_project_file>
