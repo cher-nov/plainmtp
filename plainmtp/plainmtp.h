@@ -66,12 +66,12 @@ typedef struct zz_plainmtp_context_s plainmtp_context_s;
 /* Device handle. */
 typedef struct zz_plainmtp_device_s plainmtp_device_s;
 
-/* Cursor. This is the main primitive to access objects on the device and perform operations on
-  them (enumerate child objects, create new ones, read their binary data etc). Points to the only
-  one specific object at a time. Can be typecast to (const plainmtp_image_s*) type to access
+/* Cursor. This is the main primitive to access entities on the device and perform operations on
+  them (enumerate child entities, create new ones, read their binary data etc). Points to the only
+  one specific entity at a time. Can be typecast to (const plainmtp_image_s*) type to access
   information about it. There's never a cursor in invalid state, so any operation on it is either
   success or failure. But they're not being updated automatically, so it's possible to obtain a
-  cursor that will point to a non-existent object (e.g. if it was later deleted by someone). */
+  cursor that will point to a non-existent entity (e.g. if it was later deleted by someone). */
 typedef struct zz_plainmtp_cursor_s plainmtp_cursor_s;
 
 typedef struct zz_plainmtp_registry_s {
@@ -85,15 +85,15 @@ typedef struct zz_plainmtp_registry_s {
 } plainmtp_registry_s;
 
 typedef struct zz_plainmtp_image_s {
-  /* Object's unique ID that persists between connection sessions. Can be NULL if not supported. */
-  /* IMPORTANT: This is NEITHER a Persistent Unique Object Identifier (PUID) from the original MTP
+  /* Entity's unique ID that persists between connection sessions. Can be NULL if not supported.
+    IMPORTANT: This is NEITHER a Persistent Unique Object Identifier (PUID) from the original MTP
     standard NOR guaranteed to be represented in the same GUID format as in PUID. */
   wchar_t* id;
 
   /* Either a file name or any other descriptive string that can be used as such. Can be NULL. */
   wchar_t* name;
 
-  /* Date/time in standard portable C format. If information is not available, contains zeros. */
+  /* Date/time in standard portable C format. When not available, datetime.tm_mday is set to 0. */
   struct tm datetime;
 } plainmtp_image_s;
 
@@ -136,7 +136,7 @@ extern void plainmtp_device_finish
   plainmtp_device_s* device
 );
 
-/* Set cursor to object specified by another one. */
+/* Set cursor to entity specified by another one. */
 extern plainmtp_cursor_s* plainmtp_cursor_assign
 (
   /* Cursor to be changed. If NULL, it creates a copy of 'source'. */
@@ -149,23 +149,23 @@ extern plainmtp_cursor_s* plainmtp_cursor_assign
   If an error has occurred or cursor was freed, returns NULL. A cursor retains its state on error.
 */
 
-/* Set cursor to object by its persistent unique ID. */
+/* Set cursor to entity by its persistent unique ID. */
 extern plainmtp_cursor_s* plainmtp_cursor_switch
 (
   /* Cursor to be changed. If NULL, a new one will be created. */
   plainmtp_cursor_s* cursor,
 
-  /* Persistent unique ID of the object. */
-  const wchar_t* object_id,
+  /* Persistent unique ID of the entity. */
+  const wchar_t* entity_id,
 
-  /* Handle of the device the object belongs to. */
+  /* Handle of the device the entity belongs to. */
   plainmtp_device_s* device
 );  /*
   Returns 'cursor' if it was changed; or a pointer to the created cursor.
   If an error has occurred or cursor was freed, returns NULL. A cursor retains its state on error.
 */
 
-/* Updates the cursor information about the object that is accessible by user through typecasting
+/* Updates the cursor information about the entity that is accessible by user through typecasting
   cursor to (const plainmtp_image_s*) type. If there's an enumeration in progress, it will be
   finished if function succeeds. */
 extern plainmtp_bool plainmtp_cursor_update
@@ -173,50 +173,50 @@ extern plainmtp_bool plainmtp_cursor_update
   /* Cursor to be updated. */
   plainmtp_cursor_s* cursor,
 
-  /* Handle of the device the object belongs to. */
+  /* Handle of the device the entity belongs to. */
   plainmtp_device_s* device
 );  /*
-  Returns True if information has been updated successfully, False otherwise (e.g. if object wasn't
+  Returns True if information has been updated successfully, False otherwise (e.g. if entity wasn't
   found because it has been deleted).
 */
 
-/* Switches cursor to the object's parent. */
+/* Switches cursor to the entity's parent. */
 extern plainmtp_bool plainmtp_cursor_return
 (
   /* Cursor to be switched. */
   plainmtp_cursor_s* cursor,
 
-  /* Handle of the device the object belongs to. */
+  /* Handle of the device the entity belongs to. */
   plainmtp_device_s* device
 );  /*
   If 'device' is not NULL, returns True if cursor was switched successfully, False otherwise.
   If there's an enumeration in progress, it will be aborted. Switching is guaranteed in this case.
-  If cursor points to the device's root object, does nothing and returns True.
+  If cursor points to the device's root, does nothing and returns True.
 
   If 'device' is NULL, returns True if there's an enumeration in progress, False otherwise.
 */
 
-/* Enumerate child objects one-by-one. On the first call this shadows the current object and
+/* Enumerate child entities one-by-one. On the first call this shadows the current entity and
   switches to its first child. All the subsequent calls switch the cursor to the next child. If
-  there's no more child objects to enumerate, or an error has occurred, switches back to the
-  initially shadowed object. */
+  there's no more child entities to enumerate, or an error has occurred, switches back to the
+  initially shadowed entity. */
 extern plainmtp_bool plainmtp_cursor_select
 (
   /* Cursor that is being enumerated. */
   plainmtp_cursor_s* cursor,
 
-  /* Handle of the device the object belongs to. */
+  /* Handle of the device the entity belongs to. */
   plainmtp_device_s* device
 );  /*
   If 'device' is not NULL, returns True if cursor was switched successfully to the next child.
-  If there's no more child objects to enumerate, or an error has occurred, it switches back to the
-  shadowed object and returns False. This allows enumeration with a simple 'while' loop.
+  If there's no more child entities to enumerate, or an error has occurred, it switches back to the
+  shadowed entity and returns False. This allows enumeration with a simple 'while' loop.
 
   If 'device' is NULL, returns True if the last enumerating (i.e. with 'device' as not NULL) call
-  of this function has ended with an error, or the current object was never enumerated at all.
+  of this function has ended with an error, or the current entity was never enumerated at all.
   Otherwise, returns False. If there's still an enumeration in progress, it will be aborted, but
-  retaining the current object (contrary to plainmtp_cursor_return() that resets cursor to the
-  shadowed object), which is an operation that is always guaranteed to succeed.
+  retaining the current entity (contrary to plainmtp_cursor_return() that resets cursor to the
+  shadowed entity), which is an operation that is always guaranteed to succeed.
 */
 
 /* Receive the data of the object pointed to by the cursor. */
@@ -243,10 +243,10 @@ extern plainmtp_bool plainmtp_cursor_receive
 /* Transfer data as the new child object. */
 extern plainmtp_bool plainmtp_cursor_transfer
 (
-  /* Cursor that points to the object to be the parent of a new one. */
+  /* Cursor that points to the entity to be the parent of a new one. */
   plainmtp_cursor_s* parent,
 
-  /* Handle of the device the parent object belongs to. */
+  /* Handle of the device the parent entity belongs to. */
   plainmtp_device_s* device,
 
   /* Name for the new object. */
