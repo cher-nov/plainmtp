@@ -99,6 +99,12 @@ struct zz_plainmtp_device_s {
   IPortableDeviceKeyCollection* values_request;
 };
 
+/* TODO: IPortableDeviceValues is used to achieve cost-free reference counting semantics (which is
+  useful e.g. for cursor duplication) and length-aware strings that can be obtained without calling
+  wcslen() to calculate the buffer size. However, it requires HRESULT error check for every access,
+  which is not ergonomic for plain values (such as WPD_OBJECT_SIZE), so it's better to store them
+  separately (for example, in a struct, containing 'uint64_t size' and IPortableDeviceValues). To
+  do this, make_values_request() should be split into requests for regular and temporary values. */
 struct zz_plainmtp_cursor_s {
   plainmtp_image_s current_object;  /* MUST be the first field for typecasting to public type. */
   IPortableDeviceValues* current_values;
@@ -783,16 +789,18 @@ cleanup:
 }}
 
 static size_t stream_write( IStream* stream, const char* data, size_t size ) {
+  const size_t result = size;
 {
-  while (size > 0) {
+  /* NB: If 'data' is NULL, it will be checked and result in STG_E_INVALIDPOINTER. */
+  do {
     ULONG bytes_written = 0;
     (void)INVOKE( stream, ->Write ), data, (ULONG)size, &bytes_written );
-    if (bytes_written == 0) { return size; }
+    if (bytes_written == 0) { return 0; }
     data += bytes_written;
     size -= bytes_written;
-  }
+  } while (size > 0);
 
-  return 0;
+  return result;
 }}
 
 plainmtp_bool plainmtp_cursor_receive( plainmtp_cursor_s* cursor, plainmtp_device_s* device,
@@ -802,8 +810,7 @@ plainmtp_bool plainmtp_cursor_receive( plainmtp_cursor_s* cursor, plainmtp_devic
   IStream* stream;
   LPWSTR handle;
   DWORD optimal_chunk_size;
-  void* chunk;
-  ULONG bytes_read = 0;
+  void* buffer;
 {
   assert( cursor != NULL );
   assert( device != NULL );
@@ -817,34 +824,50 @@ plainmtp_bool plainmtp_cursor_receive( plainmtp_cursor_s* cursor, plainmtp_devic
   CoTaskMemFree( handle );
   if (FAILED(hr)) { return PLAINMTP_FALSE; }
 
+  /* NB: The IStream::Stat() method is not implemented for IPortableDeviceDataStream (returns
+    E_NOTIMPL), making it impossible to obtain a guaranteed actual object size to be received. */
+
   if ( (chunk_limit == 0) || (optimal_chunk_size < chunk_limit) ) {
     chunk_limit = optimal_chunk_size;
   }
 
-  hr = E_FAIL;
-  chunk = callback( NULL, chunk_limit, custom_state );
+  buffer = callback( NULL, chunk_limit, custom_state );
+  if (buffer == NULL) {
+    hr = E_FAIL;
+  } else {
+    void* chunk = buffer;
+    ULONG bytes_read;
 
-  while (chunk != NULL) {
-    bytes_read = 0;
-    hr = INVOKE( stream, ->Read ), chunk, (ULONG)chunk_limit, &bytes_read );
-    chunk = callback( chunk, bytes_read, custom_state );
+    /* NB: IPortableDeviceDataStream does not comply with the ISequentialStream::Read() method
+      specification, which requires S_FALSE to be returned if fewer bytes than requested have been
+      read without any errors due to the end of the stream. In this case, it still returns S_OK. */
+
+    while (
+      bytes_read = 0,  /* NB: IPortableDeviceDataStream->Read() does not set this to 0 on error. */
+      hr = INVOKE( stream, ->Read ), chunk, (ULONG)chunk_limit, &bytes_read ),
+      bytes_read != 0
+    ) {
+      /* NB: If the callback unexpectedly returns NULL, this will lead to STG_E_INVALIDPOINTER. */
+      chunk = callback( chunk, bytes_read, custom_state );
+    }
+
+    (void)callback( buffer, 0, custom_state );
   }
 
   RELEASE_INSTANCE( stream );
-  return ( SUCCEEDED(hr) && (bytes_read == 0) );
+  return SUCCEEDED(hr);
 }}
 
 plainmtp_bool plainmtp_cursor_transfer( plainmtp_cursor_s* parent, plainmtp_device_s* device,
   const wchar_t* name, uint64_t size, size_t chunk_limit, plainmtp_data_f callback,
-  void* custom_state, plainmtp_cursor_s** SET_result
+  void* custom_state, plainmtp_cursor_s** SET_cursor
 ) {
   plainmtp_bool result = PLAINMTP_FALSE;
   HRESULT hr;
   IStream* stream;
   LPWSTR handle;
   DWORD optimal_chunk_size;
-  void* chunk = NULL;
-  size_t part_size;
+  void* buffer;
 {
   assert( parent != NULL );
   assert( device != NULL );
@@ -852,30 +875,39 @@ plainmtp_bool plainmtp_cursor_transfer( plainmtp_cursor_s* parent, plainmtp_devi
   stream = make_transfer_stream( parent, device, name, size, &optimal_chunk_size );
   if (stream == NULL) { return PLAINMTP_FALSE; }
 
-  if (size > 0) {
-    assert( callback != NULL );
-
+  if (callback != NULL) {
     if ( (chunk_limit == 0) || (optimal_chunk_size < chunk_limit) ) {
-      chunk_limit = optimal_chunk_size;
+      chunk_limit = (optimal_chunk_size < size) ? optimal_chunk_size : (size_t)size;
     }
 
-    do {
-      part_size = (size < chunk_limit) ? (size_t)size : chunk_limit;
-      chunk = callback( chunk, part_size, custom_state );
-      if ( stream_write( stream, chunk, part_size ) == 0 ) {
-        size -= part_size;
-      } else {
-        chunk_limit = 0;
-      }
-    } while (chunk != NULL);
+    /*if (size < chunk_limit) { chunk_limit = (size_t)size; }*/
+    buffer = callback( NULL, chunk_limit, custom_state );
 
-    if (size > 0) { goto cleanup; }
+    if (buffer != NULL) {
+      void* chunk = buffer;
+
+      while (
+        chunk_limit = stream_write( stream, chunk, chunk_limit ),
+        size -= chunk_limit,
+        (size > 0) && (chunk_limit > 0)
+      ) {
+        if (size < chunk_limit) { chunk_limit = (size_t)size; }
+        chunk = callback( chunk, chunk_limit, custom_state );
+      }
+
+      (void)callback( buffer, 0, custom_state );
+    }
+  }
+
+  if (size > 0) {
+    assert( callback != NULL );
+    goto cleanup;
   }
 
   hr = INVOKE_1( stream, ->Commit, STGC_DEFAULT );
   if (FAILED(hr)) { goto cleanup; }
 
-  if (SET_result != NULL) {
+  if (SET_cursor != NULL) {
     IPortableDeviceDataStream* wpd_stream;
     hr = INVOKE( stream, ->QueryInterface ), &IID_IPortableDeviceDataStream, &wpd_stream );
     if (FAILED(hr)) { goto no_cursor; }
@@ -884,11 +916,11 @@ plainmtp_bool plainmtp_cursor_transfer( plainmtp_cursor_s* parent, plainmtp_devi
     RELEASE_INSTANCE( wpd_stream );
 
     if (SUCCEEDED(hr)) {
-      *SET_result = setup_cursor_by_handle( *SET_result, device, handle );
+      *SET_cursor = setup_cursor_by_handle( *SET_cursor, device, handle );
       CoTaskMemFree( handle );
     } else {
 no_cursor:
-      *SET_result = NULL;
+      *SET_cursor = NULL;
     }
   }
 
