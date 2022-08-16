@@ -30,19 +30,33 @@ typedef int plainmtp_bool;
   one operation at a time and don't allow to receive / transfer multiple files simultaneously. */
 typedef void* (*plainmtp_data_f)
 (
-  /* A pointer that was returned by the previous call of this function; NULL at the first one. */
-  void* prior_chunk,
+  /* A pointer whose meaning depends on the mode in which the API function prefers to operate.
 
-  /* A size of the data chunk that buffer already contains (on receive) or that is requested (on
-    transfer). Will never exceed the value passed at the first call; contains 0 at the last one. */
+    "Active" mode:
+    - the initial call passes NULL as this argument, thus requesting the exchange buffer;
+    - subsequent calls pass the previous result as this argument if it is not NULL;
+    - the final call passes the result of the initial one, allowing to release memory if necessary.
+
+    "Passive" mode:
+    - the initial and subsequent calls pass some library pointer to its own exchange buffer;
+    - the final call passes NULL as this argument.
+
+    A call with NULL as this argument and 'size' set to 0 should be treated as the final call, not
+    the initial one. Note that when there is no data to exchange, the library may omit the initial
+    call and only perform the final one, depending on the specific implementation. */
+  void* data,
+
+  /* The size of the data chunk that is already in the buffer or is being requested. In "active"
+    mode, this parameter will never exceed the value of its argument passed in the initial call. A
+    value of 0 indicates the final call, which is always made unless the initial call in "active"
+    mode has failed to provide an exchange buffer and returned NULL. */
   size_t size,
 
-  /* An arbitrary user's pointer that was passed to the corresponding API function. */
+  /* An arbitrary user's pointer that was passed to the corresponding library API function. */
   void* custom_state
 );  /*
-  Returns pointer to buffer for the next data chunk (on receive), or pointer to the requested data
-  (on transfer). If this was the last call (the operation has finished or an error has occurred),
-  returns NULL.
+  Returns NULL if the operation completed or an error occurred. Otherwise, the result should be a
+  pointer for the next call (in "active" mode) or any pointer that is not NULL (in "passive" mode).
 */
 
 /* Library context. Can be typecast to (const plainmtp_registry_s*) type to access information
@@ -241,21 +255,23 @@ extern plainmtp_bool plainmtp_cursor_transfer
   /* Size of the data to be transferred. */
   uint64_t size,
 
-  /* Maximum size of the data chunk. If 0, there's no limit. */
+  /* Maximum size of the data chunk. If 0, there's no limit. Note that this function DOESN'T clip
+    it if it is greater than 'size', so you may want to do it manually to allocate less memory. */
   size_t chunk_limit,
 
-  /* Callback function to transfer the data. See plainmtp_data_f description for details. */
+  /* Callback function to transfer the data. Can be NULL only if 'size' is 0. See plainmtp_data_f
+    description for details. */
   plainmtp_data_f callback,
 
   /* An arbitrary user's pointer that will be passed to callback unchanged. */
   void* custom_state,
 
   /* A pointer to the cursor that will be set to the new object. If the underlying value is NULL,
-    the function will make a new cursor. Can be NULL to not get any cursor whatsoever. */
-  plainmtp_cursor_s** SET_result
+    the function will make a new cursor. Can be NULL to avoid getting any cursor whatsoever. */
+  plainmtp_cursor_s** SET_cursor
 );  /*
   Returns True if object has been created and data transferred successfully, False otherwise.
-  If 'SET_result' is not NULL, but it failed to set the cursor after transferring the data, then
+  If 'SET_cursor' is not NULL, but it failed to set the cursor after transferring the data, then
   the underlying value will be NULL.
 */
 

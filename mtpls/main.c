@@ -108,22 +108,27 @@ static int command_list( plainmtp_cursor_s* cursor, plainmtp_device_s* device ) 
   return EXIT_SUCCESS;
 }}
 
-static void* CB_receive_file( void* prior_chunk, size_t size, void* user_state ) {
+static void* CB_receive_file( void* chunk, size_t size, void* file ) {
 {
-  PUT_TEXT( "> chunk: %p\tuser_state: %p\tsize: %-10lu\r"), prior_chunk, user_state,
-    (unsigned long)size );
+  PUT_TEXT( "> chunk: %p\tfile: %p\tsize: %-10lu\r"), chunk, file, (unsigned long)size );
 
-  if (prior_chunk == NULL) {
+  if (size == 0) {
+    PUT_LINE( "\n--" );
+    free( chunk );
+    return NULL;
+  }
+
+  if (chunk == NULL) {
     PUT_CHAR('\n');
     return malloc( size );
   }
 
-  size = fwrite( prior_chunk, size, 1, (FILE*)user_state );
-  if (size != 0) { return prior_chunk; }
+# ifndef NDEBUG
+  PUT_CHAR('\n');
+# endif
 
-  PUT_LINE( "\n--" );
-  free( prior_chunk );
-  return NULL;
+  size = fwrite( chunk, size, 1, file );
+  return (size != 0) ? chunk : NULL;
 }}
 
 static int command_receive( plainmtp_cursor_s* cursor, plainmtp_device_s* device,
@@ -140,6 +145,7 @@ static int command_receive( plainmtp_cursor_s* cursor, plainmtp_device_s* device
 
   result = plainmtp_cursor_receive( cursor, device, 0, &CB_receive_file, output );
   (void)fclose( output );
+  PUT_CHAR('\n');
 
   if (!result) {
     PUT_LINE( "failed to receive the file" );
@@ -150,25 +156,37 @@ static int command_receive( plainmtp_cursor_s* cursor, plainmtp_device_s* device
   return EXIT_SUCCESS;
 }}
 
-static void* CB_transfer_file( void* prior_chunk, size_t size, void* user_state ) {
+static void* CB_transfer_file( void* chunk, size_t size, void* file ) {
+  const plainmtp_bool initial_call = (chunk == NULL);
 {
-  PUT_TEXT( "> chunk: %p\tuser_state: %p\tsize: %-10lu\r"), prior_chunk, user_state,
-    (unsigned long)size );
+  PUT_TEXT( "> chunk: %p\tfile: %p\tsize: %-10lu\r"), chunk, file, (unsigned long)size );
 
-  if (prior_chunk == NULL) {
+  if (size == 0) {
+    PUT_LINE( "\n--" );
+    goto cleanup;
+  }
+
+  if (initial_call) {
     PUT_CHAR('\n');
-    prior_chunk = malloc( size );
-    if (prior_chunk == NULL) {
+    chunk = malloc( size );
+    if (chunk == NULL) {
       PUT_LINE( "  failed to allocate chunk memory" );
       return NULL;
     }
   }
+# ifndef NDEBUG
+  else { PUT_CHAR('\n'); }
+# endif
 
-  size = fread( prior_chunk, size, 1, (FILE*)user_state );
-  if (size != 0) { return prior_chunk; }
+  size = fread( chunk, size, 1, file );
+  if (size != 0) { return chunk; }
 
-  PUT_LINE( "\n--" );
-  free( prior_chunk );
+  /* We need this check to prevent double-free during the final call in case of fread() error. */
+  if (initial_call) {
+cleanup:
+    free( chunk );
+  }
+
   return NULL;
 }}
 
@@ -199,6 +217,7 @@ size_error:
   }
 
   (void)fclose( source );
+  PUT_CHAR('\n');
 
   if (!result) {
     PUT_LINE( "failed to transfer the file" );
