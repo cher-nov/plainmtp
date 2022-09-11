@@ -6,14 +6,6 @@
 
 #include "../plainmtp/plainmtp.h"
 
-/* https://stackoverflow.com/questions/1848700/biggest-integer-that-can-be-stored-in-a-double
-  NB: The C89 standard doesn't guarantee that 'double' type has the IEEE-754 'binary64' format, but
-  that is the most common case, and I hope that even if someone will dare to compile this for some
-  cursed target platform where this numeric literal is not even representable as a 'long double',
-  the compiler will be able at least to cry you a river about it. Unfortunately, C95 doesn't have
-  static asserts to check that 'INTEGER_RANGE_754B64-1 < INTEGER_RANGE_754B64' is satisfied. */
-#define INTEGER_RANGE_754B64 (9007199254740992.L)  /* 2 ^ 53 (note: no mantissa, only exponent) */
-
 #define COMMAND_ENUMERATE (L'e')
 #define COMMAND_LIST (L'l')
 #define COMMAND_RECEIVE (L'r')
@@ -98,7 +90,7 @@ static int command_list( plainmtp_cursor_s* cursor, plainmtp_device_s* device ) 
   size_t count = 0;
   const plainmtp_image_s* const image = (plainmtp_image_s*)cursor;
 {
-  PUT_TEXT( "\n%ls\t: %ls\n\n"), WSNN(image->name), WSNN(image->id) );
+  PUT_TEXT( "\n%ls\t: %ls\n\n"), WSNN(image->name), image->id );
 
   while ( plainmtp_cursor_select(cursor, device) ) {
     char strftime_result[] = "0000-00-00 00:00:00";  /* We need to refresh it every iteration. */
@@ -109,7 +101,7 @@ static int command_list( plainmtp_cursor_s* cursor, plainmtp_device_s* device ) 
         &image->datetime );
     }
 
-    PUT_TEXT( "  %ls :\t%s\t%ls\n"), WSNN(image->id), strftime_result, WSNN(image->name) );
+    PUT_TEXT( "  %ls :\t%s\t%ls\n"), image->id, strftime_result, WSNN(image->name) );
     ++count;
   }
 
@@ -124,8 +116,8 @@ static int command_list( plainmtp_cursor_s* cursor, plainmtp_device_s* device ) 
 
 static void* CB_receive_file( void* chunk, size_t size, void* file ) {
 {
-  PUT_TEXT( "> file: %p    chunk: %p    size: %s%-16.0Lf\r"), file, chunk,
-    (size > INTEGER_RANGE_754B64) ? "~" : "", (long double)size );
+  PUT_TEXT( "> file: %p    chunk: %p    size: %-16"PRINTF_INT64_MODIFIER"u\r"), file, chunk,
+    (uint64_t)size );
 
   if (size == 0) {
     PUT_LINE( "\n--" );
@@ -174,8 +166,8 @@ static int command_receive( plainmtp_cursor_s* cursor, plainmtp_device_s* device
 static void* CB_transfer_file( void* chunk, size_t size, void* file ) {
   const plainmtp_bool initial_call = (chunk == NULL);
 {
-  PUT_TEXT( "> file: %p    chunk: %p    size: %s%-16.0Lf\r"), file, chunk,
-    (size > INTEGER_RANGE_754B64) ? "~" : "", (long double)size );
+  PUT_TEXT( "> file: %p    chunk: %p    size: %-16"PRINTF_INT64_MODIFIER"u\r"), file, chunk,
+    (uint64_t)size );
 
   if (size == 0) {
     PUT_LINE( "\n--" );
@@ -242,7 +234,7 @@ size_error:
 
   PUT_LINE( "file has been transferred successfully" );
   if (cursor != NULL) {
-    PUT_TEXT( "  %ls :\t%ls\n"), WSNN(image->id), WSNN(image->name) );
+    PUT_TEXT( "  %ls :\t%ls\n"), image->id, WSNN(image->name) );
   } else {
     PUT_LINE( "!!! An error occurred while switching the cursor" );
   }

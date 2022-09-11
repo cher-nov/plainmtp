@@ -17,13 +17,11 @@
   Official website for this library: http://www.azillionmonkeys.com/qed/ninja.html */
 #include "../3rdparty/pstdint.h"
 
+#include "global.h"
+
 #define PLAINMTP_VERSION_MAJOR 0
 #define PLAINMTP_VERSION_MINOR 1
 #define PLAINMTP_VERSION_BUILD 0
-
-typedef int plainmtp_bool;
-#define PLAINMTP_FALSE (0)
-#define PLAINMTP_TRUE (!PLAINMTP_FALSE)
 
 /* This is the prototype of a callback function user should use to transfer or receive data. The
   callback model was chosen over the contextual one due to the fact that PTP/MTP can perform only
@@ -85,7 +83,7 @@ typedef struct zz_plainmtp_registry_s {
 } plainmtp_registry_s;
 
 typedef struct zz_plainmtp_image_s {
-  /* Entity's unique ID that persists between connection sessions. Can be NULL if not supported.
+  /* Entity's unique ID that persists between connection sessions. Guaranteed not to be NULL.
     IMPORTANT: This is NEITHER a Persistent Unique Object Identifier (PUID) from the original MTP
     standard NOR guaranteed to be represented in the same GUID format as in PUID. */
   wchar_t* id;

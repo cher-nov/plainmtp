@@ -52,6 +52,12 @@
 		<Linker>
 			<Add library="mtp" />
 		</Linker>
+		<Unit filename="common.h">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="global.h">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="plainmtp.h">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -68,6 +74,12 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="wcsdup.h">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="wpd_puid.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="wpd_puid.h">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Extensions />

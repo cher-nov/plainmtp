@@ -30,9 +30,6 @@
   https://stackoverflow.com/questions/34290054/why-am-i-not-getting-the-wpd-object-original-file-namei-e-the-filename-of-the
 */
 
-/* In WPD, this value is the same for both PUID and session-based handle of the root object. */
-static LPCWSTR root_object_id = WPD_DEVICE_OBJECT_ID;
-
 #define FILE_SHARE_EXCLUSIVE (0)
 
 #define INVOKE( interface, method ) \
@@ -61,11 +58,12 @@ typedef HRESULT (STDMETHODCALLTYPE *device_info_string_f) (
     where starting 1101 bits mean "Vendor-Extended Property Code", according to the PTP standard).
     But it seems that WPD always assigns persistent IDs for objects even if they're unsupported by
     the device itself: https://docs.microsoft.com/en-us/windows/win32/wpd_sdk/wpd-content-type-all
+    At least it definitely has a fallback algorithm for PTP (which is now known, see wpd_puid.c).
 
     I've tested Canon PowerShot A700 camera that supports PTP (including PictBridge) but not MTP,
     and WPD had reported the PUIDs successfully. I've also tested Sony DSC-H50 camera that supports
     PTP/MTP and PictBridge as two different modes, and it's worth noting that their PUID values
-    were DIFFERENT. The PTP and MTP modes are combined there into one, so it probably supports
+    were different. The PTP and MTP modes are combined there into one, so it probably supports
     extended MTP property codes anyway, even if the machine (the "initiator") is using PTP only.
 
   - WPD also assigns PUIDs even for portable devices that use other protocols than PTP/MTP (e.g.
@@ -617,7 +615,8 @@ plainmtp_cursor_s* plainmtp_cursor_switch( plainmtp_cursor_s* cursor, const wcha
   assert( device != NULL );
 
   if (entity_id == NULL) {
-    entity_id = root_object_id;
+    /* In WPD, this value is the same for both PUID and session-based handle of the root object. */
+    entity_id = WPD_DEVICE_OBJECT_ID;
     handle = NULL;
   } else {
     handle = make_object_handle_from_puid( device->wpd_content, entity_id );
