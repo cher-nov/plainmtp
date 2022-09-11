@@ -8,6 +8,8 @@
 
 #include "wcsdup.h"
 #include "utf8_wchar.h"
+#include "wpd_puid.h"
+#include "common.h"
 
 /* NB: The code marked with the "SHARED MEMORY MOMENT" comment depends on the implicit assumption
   that our library and libmtp will share the same memory allocator and heap across a module
@@ -25,6 +27,9 @@ static plainmtp_bool is_libmtp_initialized = PLAINMTP_FALSE;
 
 #define CURSOR_HAS_STORAGE_ID( Cursor ) \
   !( (Cursor)->values.storage_id == STORAGE_ID_NULL )
+
+#define WSTRING_PRINTABLE( String ) \
+  !( ( (String) == NULL ) || ( (String)[0] == L'\0' ) )
 
 typedef char* (*device_info_string_f) (
   LIBMTP_mtpdevice_t* );
@@ -156,15 +161,10 @@ static wchar_t* make_storage_name( LIBMTP_devicestorage_t* values ) {
   wchar_t* result;
   const wchar_t* label;
 {
-# define TRY_CONVERT( String ) \
-  if ( (String != NULL) && (String[0] != '\0') ) { \
-    result = make_wide_string_from_utf8( String, NULL ); \
-    if (result != NULL) { return result; } \
-  } ((void)0)
-
-  TRY_CONVERT( values->VolumeIdentifier );
-  TRY_CONVERT( values->StorageDescription );
-# undef TRY_CONVERT
+  if (WSTRING_PRINTABLE( values->StorageDescription )) {
+    result = make_wide_string_from_utf8( values->StorageDescription, NULL );
+    if (result != NULL) { return result; }
+  }
 
   switch (values->StorageType) {
     case 0x0000: label = L"Undefined"; break;
@@ -176,6 +176,32 @@ static wchar_t* make_storage_name( LIBMTP_devicestorage_t* values ) {
   }
 
   return wcsdup( label );
+}}
+
+static wchar_t* make_storage_unique_id( LIBMTP_devicestorage_t* storage,
+  wchar_t** OUT_volume_string
+) {
+  wchar_t *result, *volume_string;
+  size_t volume_string_length;
+{
+  if (storage->VolumeIdentifier != NULL) {
+    volume_string = make_wide_string_from_utf8( storage->VolumeIdentifier, &volume_string_length );
+    if (volume_string == NULL) { return NULL; }
+  } else {
+    volume_string = NULL;
+    volume_string_length = 0;
+  }
+
+  result = make_wpd_storage_unique_id( storage->id, storage->MaxCapacity, volume_string,
+    volume_string_length );
+
+  if ( (OUT_volume_string != NULL) && (result != NULL) ) {
+    *OUT_volume_string = volume_string;
+  } else {
+    free( volume_string );
+  }
+
+  return result;
 }}
 
 static LIBMTP_devicestorage_t* find_storage_by_id( LIBMTP_devicestorage_t* chain,
@@ -315,45 +341,105 @@ void plainmtp_device_finish( plainmtp_device_s* device ) {
 /**************************************************************************************************/
 
 static plainmtp_bool obtain_image_copy( plainmtp_image_s* entity, plainmtp_image_s* source ) {
+  wchar_t* unique_id;
 {
-  entity->id = NULL;  /* TODO: https://github.com/libmtp/libmtp/issues/117 */
-  entity->datetime = source->datetime;
+  unique_id = wcsdup( source->id );
+  if (unique_id == NULL) { return PLAINMTP_FALSE; }
+  entity->id = unique_id;
 
   if (source->name != NULL) { entity->name = wcsdup( source->name ); }
+  entity->datetime = source->datetime;
 
   return PLAINMTP_TRUE;
 }}
 
-static plainmtp_bool obtain_object_image( plainmtp_image_s* entity, LIBMTP_file_t* object ) {
+static plainmtp_3val obtain_object_image( plainmtp_image_s* entity, LIBMTP_file_t* object,
+  const wpd_guid_plain_i required_id
+) {
+  wpd_guid_plain_i plain_guid;
+  wchar_t *name, *id_string;
 {
-  entity->id = NULL;  /* TODO: https://github.com/libmtp/libmtp/issues/117 */
+  if (object->filename != NULL) {
+    name = make_wide_string_from_utf8( object->filename, NULL );
+    if (name == NULL) { return PLAINMTP_BAD; }
+  } else {
+    name = NULL;
+  }
+
+  /* TODO: Usage of the WPD fallback algorithm here is a temporary workaround solution for unique
+    object identifiers, since libmtp can't access the actual MTP property due to lack of support
+    for the UINT128 protocol datatype. Detailed issue: https://github.com/libmtp/libmtp/issues/117
+
+    It should be noted that this is also slightly incorrect here, as it requires a narrowing cast
+    for the object size, which is 64-bit wide in MTP, and needs 'name' which can be NULL. Moreover,
+    the wrapper should not have the need in this algorithm at all, because libmtp supports only MTP
+    and ignores PTP devices. */
+
+  get_wpd_fallback_object_id( plain_guid, name, object->item_id, object->parent_id,
+    object->storage_id, (uint32_t)object->filesize );
+
+  /* BEWARE: Short-circuit evaluation matters here! */
+  if ( (required_id != NULL)
+    && (memcmp( plain_guid, required_id, sizeof(wpd_guid_plain_i) ) != 0)
+  ) {
+    free( name );
+    return PLAINMTP_NONE;
+  }
+
+  id_string = malloc( WPD_GUID_STRING_SIZE * sizeof(*id_string) );
+  if (id_string == NULL) {
+    free( name );
+    return PLAINMTP_BAD;
+  }
+
+  write_wpd_plain_guid( plain_guid, id_string );
+
+  entity->id = id_string;
+  entity->name = name;
 
   /* NB: I personally would prefer gmtime() here, but that's how WPD wrapper for plainmtp works. */
   entity->datetime = *localtime( &object->modificationdate );
 
-  entity->name = (object->filename != NULL)
-    ? make_wide_string_from_utf8( object->filename, NULL )
-    : NULL;
-
-  return PLAINMTP_TRUE;
+  return PLAINMTP_GOOD;
 }}
 
-static plainmtp_bool obtain_storage_image( plainmtp_image_s* entity,
-  LIBMTP_devicestorage_t* storage ) {
+static plainmtp_3val obtain_storage_image( plainmtp_image_s* entity,
+  LIBMTP_devicestorage_t* storage, const wchar_t* required_id
+) {
+  wchar_t *unique_id, *storage_name;
 {
-  entity->id = NULL;  /* TODO: Implement WPD-like unique IDs for storages. */
+  unique_id = make_storage_unique_id( storage, &storage_name );
+  if (unique_id == NULL) { return PLAINMTP_BAD; }
+
+  /* BEWARE: Short-circuit evaluation matters here! */
+  if ( (required_id != NULL) && (wcscmp( unique_id, required_id ) != 0) ) {
+    free( unique_id );
+    free( storage_name );
+    return PLAINMTP_NONE;
+  }
+
+  if (!WSTRING_PRINTABLE( storage_name )) {
+    free( storage_name );
+    storage_name = make_storage_name( storage );
+  }
+
+  entity->id = unique_id;
+  entity->name = storage_name;
   entity->datetime.tm_mday = 0;  /* There's no datetime information for storages. */
 
-  entity->name = make_storage_name( storage );
-  return PLAINMTP_TRUE;
+  return PLAINMTP_GOOD;
 }}
 
 static plainmtp_bool obtain_device_image( plainmtp_image_s* entity, LIBMTP_mtpdevice_t* socket ) {
+  wchar_t* unique_id;
 {
-  entity->id = NULL;  /* TODO: Implement WPD-like unique ID for the device root. */
-  entity->datetime.tm_mday = 0;  /* There's no datetime information for the device root. */
+  unique_id = wcsdup( wpd_root_persistent_id );
+  if (unique_id == NULL) { return PLAINMTP_FALSE; }
+  entity->id = unique_id;
 
   entity->name = make_device_info( socket, LIBMTP_Get_Modelname );
+  entity->datetime.tm_mday = 0;  /* There's no datetime information for the device root. */
+
   return PLAINMTP_TRUE;
 }}
 
@@ -433,7 +519,7 @@ static plainmtp_cursor_s* setup_cursor_to_object( plainmtp_cursor_s* cursor,
   plainmtp_image_s entity;
   entity_location_s descriptor;
 {
-  if ( obtain_object_image( &entity, object ) ) {
+  if ( obtain_object_image( &entity, object, NULL ) == PLAINMTP_GOOD ) {
     set_object_values( &descriptor, object );
     cursor = reset_cursor( cursor, &entity, &descriptor );
     if (cursor != NULL) { return cursor; }
@@ -444,12 +530,12 @@ static plainmtp_cursor_s* setup_cursor_to_object( plainmtp_cursor_s* cursor,
 }}
 
 static plainmtp_cursor_s* setup_cursor_to_storage( plainmtp_cursor_s* cursor,
-  LIBMTP_devicestorage_t* storage
+  LIBMTP_devicestorage_t* storage, const wchar_t* required_id
 ) {
   plainmtp_image_s entity;
   entity_location_s descriptor;
 {
-  if ( obtain_storage_image( &entity, storage ) ) {
+  if ( obtain_storage_image( &entity, storage, required_id ) == PLAINMTP_GOOD ) {
     set_storage_values( &descriptor, storage->id );
     cursor = reset_cursor( cursor, &entity, &descriptor );
     if (cursor != NULL) { return cursor; }
@@ -489,8 +575,52 @@ static plainmtp_cursor_s* setup_cursor_by_handle( plainmtp_cursor_s* cursor,
   return cursor;
 }}
 
+static plainmtp_cursor_s* setup_cursor_by_lookup( plainmtp_cursor_s* cursor,
+  LIBMTP_mtpdevice_t* socket, const wpd_guid_plain_i required_id
+) {
+  LIBMTP_file_t *chain, *object;
+  plainmtp_image_s entity;
+  entity_location_s descriptor;
+{
+  /* TODO: LIBMTP_Get_Files_And_Folders() will block until ALL objects from the device have been
+    received and parsed into LIBMTP_file_t instances. This is immensely slow and must be optimized
+    somehow (e.g. by walking the hierarchy with a non-recursive DFS/BFS). It's worth noting that
+    LIBMTP_Get_Folder_List() is not suitable because it also gets the full object list internally.
+    Moreover, it doesn't work in the uncached mode: https://github.com/libmtp/libmtp/issues/129 */
+
+  chain = LIBMTP_Get_Files_And_Folders( socket, STORAGE_ID_NULL, ~LIBMTP_FILES_AND_FOLDERS_ROOT );
+
+  while (chain != NULL) {
+    object = chain;
+    chain = object->next;
+
+    switch (obtain_object_image( &entity, object, required_id )) {
+      case PLAINMTP_GOOD: {
+        set_object_values( &descriptor, object );
+        free_libmtp_object_listing( object );
+
+        cursor = reset_cursor( cursor, &entity, &descriptor );
+        if (cursor != NULL) { return cursor; }
+
+        wipe_entity_image( &entity );
+        return NULL;
+      }
+
+      case PLAINMTP_BAD: {
+        free_libmtp_object_listing( object );
+        return NULL;
+      }
+
+      default: LIBMTP_destroy_file_t( object );
+    }
+  }
+
+  return NULL;
+}}
+
 static plainmtp_cursor_s* setup_cursor_by_id( plainmtp_cursor_s* cursor,
-  LIBMTP_mtpdevice_t* socket, uint32_t storage_id, plainmtp_bool force_update
+  LIBMTP_mtpdevice_t* socket, uint32_t storage_id, plainmtp_bool force_update,
+  const wchar_t* required_id
 ) {
   LIBMTP_devicestorage_t* storage;
 {
@@ -502,7 +632,7 @@ static plainmtp_cursor_s* setup_cursor_by_id( plainmtp_cursor_s* cursor,
   storage = find_storage_by_id( socket->storage, storage_id );
   if (storage == NULL) { return NULL; }
 
-  return setup_cursor_to_storage( cursor, storage );
+  return setup_cursor_to_storage( cursor, storage, required_id );
 }}
 
 static storage_enumeration_s* make_storage_enumeration( LIBMTP_mtpdevice_t* socket ) {
@@ -519,7 +649,9 @@ static storage_enumeration_s* make_storage_enumeration( LIBMTP_mtpdevice_t* sock
     next_node = malloc( sizeof(*next_node) );
 
     /* BEWARE: Short-circuit evaluation matters here! */
-    if ( (next_node == NULL) || (!obtain_storage_image( &next_node->entity, chain )) ) {
+    if ( (next_node == NULL)
+      || (obtain_storage_image( &next_node->entity, chain, NULL ) != PLAINMTP_GOOD)
+    ) {
       free( next_node );
       *link = last_node;
       return result;
@@ -560,17 +692,26 @@ plainmtp_cursor_s* plainmtp_cursor_assign( plainmtp_cursor_s* cursor, plainmtp_c
 plainmtp_cursor_s* plainmtp_cursor_switch( plainmtp_cursor_s* cursor, const wchar_t* entity_id,
   plainmtp_device_s* device
 ) {
+  wpd_guid_plain_i object_id;
+  uint32_t storage_id;
 {
   assert( device != NULL );
 
-  /* TODO: Check also for persistent ID of the device root. */
-  if (entity_id == NULL) {
-    cursor = setup_cursor_to_device( cursor, device->libmtp_socket );
-  } else {
-    return NULL;  /* TODO: https://github.com/libmtp/libmtp/issues/117 */
+  /* BEWARE: Short-circuit evaluation matters here! */
+  if ( (entity_id == NULL) || (wcscmp( entity_id, wpd_root_persistent_id ) == 0) ) {
+    return setup_cursor_to_device( cursor, device->libmtp_socket );
   }
 
-  return cursor;
+  if (parse_wpd_storage_unique_id( entity_id, &storage_id )) {
+    return setup_cursor_by_id( cursor, device->libmtp_socket, storage_id, PLAINMTP_TRUE,
+      entity_id );
+  }
+
+  if (read_wpd_plain_guid( object_id, entity_id )) {
+    return setup_cursor_by_lookup( cursor, device->libmtp_socket, object_id );
+  }
+
+  return NULL;
 }}
 
 plainmtp_bool plainmtp_cursor_update( plainmtp_cursor_s* cursor, plainmtp_device_s* device ) {
@@ -586,7 +727,7 @@ plainmtp_bool plainmtp_cursor_update( plainmtp_cursor_s* cursor, plainmtp_device
 
     case CURSOR_ENTITY_STORAGE:
       cursor = setup_cursor_by_id( cursor, device->libmtp_socket, descriptor.storage_id,
-        PLAINMTP_TRUE );
+        PLAINMTP_TRUE, NULL );
     break;
 
     case CURSOR_ENTITY_OBJECT:
@@ -622,7 +763,7 @@ plainmtp_bool plainmtp_cursor_return( plainmtp_cursor_s* cursor, plainmtp_device
   } else if (cursor->values.parent_handle == OBJECT_HANDLE_NULL) {
     /* The cursor represents an object from the storage root. */
     cursor = setup_cursor_by_id( cursor, device->libmtp_socket, cursor->values.storage_id,
-      PLAINMTP_FALSE );
+      PLAINMTP_FALSE, NULL );
 
   } else {
     /* The cursor represents an object with a parent. */
@@ -690,7 +831,7 @@ static plainmtp_bool select_object_first( plainmtp_cursor_s* cursor, plainmtp_de
   }
 
   cursor->parent_entity = cursor->current_entity;
-  if ( !obtain_object_image( &cursor->current_entity, chain ) ) {
+  if (obtain_object_image( &cursor->current_entity, chain, NULL ) != PLAINMTP_GOOD) {
     free_libmtp_object_listing( chain );
     cursor->enumeration = cursor;
     return PLAINMTP_FALSE;
@@ -711,7 +852,7 @@ static plainmtp_bool select_object_next( plainmtp_cursor_s* cursor ) {
     goto finished;
   }
 
-  if ( !obtain_object_image( &cursor->current_entity, chain ) ) {
+  if (obtain_object_image( &cursor->current_entity, chain, NULL ) != PLAINMTP_GOOD) {
     free_libmtp_object_listing( chain );
     cursor->enumeration = cursor;
     goto finished;
