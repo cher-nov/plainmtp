@@ -496,8 +496,7 @@ static void clear_cursor( plainmtp_cursor_s* cursor ) {
   }
 }}
 
-static plainmtp_cursor_s* reset_cursor( plainmtp_cursor_s* cursor, plainmtp_image_s* entity,
-  entity_location_s* descriptor ) {
+static plainmtp_cursor_s* prepare_cursor( plainmtp_cursor_s* cursor, plainmtp_image_s* entity ) {
 {
   if (cursor == NULL) {
     cursor = malloc( sizeof(*cursor) );
@@ -507,7 +506,6 @@ static plainmtp_cursor_s* reset_cursor( plainmtp_cursor_s* cursor, plainmtp_imag
   }
 
   cursor->current_entity = *entity;
-  cursor->values = *descriptor;
   cursor->enumeration = cursor;
 
   return cursor;
@@ -517,12 +515,14 @@ static plainmtp_cursor_s* setup_cursor_to_object( plainmtp_cursor_s* cursor,
   LIBMTP_file_t* object
 ) {
   plainmtp_image_s entity;
-  entity_location_s descriptor;
 {
   if ( obtain_object_image( &entity, object, NULL ) == PLAINMTP_GOOD ) {
-    set_object_values( &descriptor, object );
-    cursor = reset_cursor( cursor, &entity, &descriptor );
-    if (cursor != NULL) { return cursor; }
+    cursor = prepare_cursor( cursor, &entity );
+    if (cursor != NULL) {
+      set_object_values( &cursor->values, object );
+      return cursor;
+    }
+
     wipe_entity_image( &entity );
   }
 
@@ -533,12 +533,14 @@ static plainmtp_cursor_s* setup_cursor_to_storage( plainmtp_cursor_s* cursor,
   LIBMTP_devicestorage_t* storage, const wchar_t* required_id
 ) {
   plainmtp_image_s entity;
-  entity_location_s descriptor;
 {
   if ( obtain_storage_image( &entity, storage, required_id ) == PLAINMTP_GOOD ) {
-    set_storage_values( &descriptor, storage->id );
-    cursor = reset_cursor( cursor, &entity, &descriptor );
-    if (cursor != NULL) { return cursor; }
+    cursor = prepare_cursor( cursor, &entity );
+    if (cursor != NULL) {
+      set_storage_values( &cursor->values, storage->id );
+      return cursor;
+    }
+
     wipe_entity_image( &entity );
   }
 
@@ -549,12 +551,14 @@ static plainmtp_cursor_s* setup_cursor_to_device( plainmtp_cursor_s* cursor,
   LIBMTP_mtpdevice_t* socket
 ) {
   plainmtp_image_s entity;
-  entity_location_s descriptor;
 {
   if ( obtain_device_image( &entity, socket ) ) {
-    set_storage_values( &descriptor, STORAGE_ID_NULL );
-    cursor = reset_cursor( cursor, &entity, &descriptor );
-    if (cursor != NULL) { return cursor; }
+    cursor = prepare_cursor( cursor, &entity );
+    if (cursor != NULL) {
+      set_storage_values( &cursor->values, STORAGE_ID_NULL );
+      return cursor;
+    }
+
     wipe_entity_image( &entity );
   }
 
@@ -580,7 +584,6 @@ static plainmtp_cursor_s* setup_cursor_by_lookup( plainmtp_cursor_s* cursor,
 ) {
   LIBMTP_file_t *chain, *object;
   plainmtp_image_s entity;
-  entity_location_s descriptor;
 {
   /* TODO: LIBMTP_Get_Files_And_Folders() will block until ALL objects from the device have been
     received and parsed into LIBMTP_file_t instances. This is immensely slow and must be optimized
@@ -595,24 +598,26 @@ static plainmtp_cursor_s* setup_cursor_by_lookup( plainmtp_cursor_s* cursor,
     chain = object->next;
 
     switch (obtain_object_image( &entity, object, required_id )) {
-      case PLAINMTP_GOOD: {
-        set_object_values( &descriptor, object );
-        free_libmtp_object_listing( object );
+      case PLAINMTP_GOOD:
+        cursor = prepare_cursor( cursor, &entity );
+        if (cursor != NULL) {
+          set_object_values( &cursor->values, object );
+        } else {
+          wipe_entity_image( &entity );
+        }
+      break;
 
-        cursor = reset_cursor( cursor, &entity, &descriptor );
-        if (cursor != NULL) { return cursor; }
+      case PLAINMTP_BAD:
+        cursor = NULL;
+      break;
 
-        wipe_entity_image( &entity );
-        return NULL;
-      }
-
-      case PLAINMTP_BAD: {
-        free_libmtp_object_listing( object );
-        return NULL;
-      }
-
-      default: LIBMTP_destroy_file_t( object );
+      default:
+        LIBMTP_destroy_file_t( object );
+      continue;
     }
+
+    free_libmtp_object_listing( object );
+    return cursor;
   }
 
   return NULL;
@@ -672,7 +677,6 @@ static storage_enumeration_s* make_storage_enumeration( LIBMTP_mtpdevice_t* sock
 
 plainmtp_cursor_s* plainmtp_cursor_assign( plainmtp_cursor_s* cursor, plainmtp_cursor_s* source ) {
   plainmtp_image_s entity;
-  entity_location_s descriptor;
 {
   if (cursor == source) { return cursor; }
 
@@ -680,9 +684,12 @@ plainmtp_cursor_s* plainmtp_cursor_assign( plainmtp_cursor_s* cursor, plainmtp_c
     clear_cursor( cursor );
     free( cursor );
   } else if ( obtain_image_copy( &entity, &source->current_entity ) ) {
-    (void)get_cursor_state( source, &descriptor );
-    cursor = reset_cursor( cursor, &entity, &descriptor );
-    if (cursor != NULL) { return cursor; }
+    cursor = prepare_cursor( cursor, &entity );
+    if (cursor != NULL) {
+      (void)get_cursor_state( source, &cursor->values );
+      return cursor;
+    }
+
     wipe_entity_image( &entity );
   }
 
