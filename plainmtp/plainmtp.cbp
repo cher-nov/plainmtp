@@ -52,6 +52,9 @@
 		<Linker>
 			<Add library="mtp" />
 		</Linker>
+		<Unit filename="common.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="common.h">
 			<Option compilerVar="CC" />
 		</Unit>

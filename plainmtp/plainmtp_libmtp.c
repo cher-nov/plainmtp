@@ -582,45 +582,58 @@ static plainmtp_cursor_s* setup_cursor_by_handle( plainmtp_cursor_s* cursor,
 static plainmtp_cursor_s* setup_cursor_by_lookup( plainmtp_cursor_s* cursor,
   LIBMTP_mtpdevice_t* socket, const wpd_guid_plain_i required_id
 ) {
+  plainmtp_cursor_s* result = NULL;
   LIBMTP_file_t *chain, *object;
   plainmtp_image_s entity;
+  object_queue_s *bfs_pipeline, *data;
+  object_queue_item_s step = {STORAGE_ID_NULL, LIBMTP_FILES_AND_FOLDERS_ROOT};
 {
-  /* TODO: LIBMTP_Get_Files_And_Folders() will block until ALL objects from the device have been
-    received and parsed into LIBMTP_file_t instances. This is immensely slow and must be optimized
-    somehow (e.g. by walking the hierarchy with a non-recursive DFS/BFS). It's worth noting that
-    LIBMTP_Get_Folder_List() is not suitable because it also gets the full object list internally.
+  /* TODO: Can this be faster? LIBMTP_Get_Files_And_Folders() parses all objects into LIBMTP_file_t
+    instances, while we need only their handles here, so that is quite slow. It's worth noting that
+    LIBMTP_Get_Folder_List() is not suitable because it gets the full object list internally.
     Moreover, it doesn't work in the uncached mode: https://github.com/libmtp/libmtp/issues/129 */
 
-  chain = LIBMTP_Get_Files_And_Folders( socket, STORAGE_ID_NULL, ~LIBMTP_FILES_AND_FOLDERS_ROOT );
+  bfs_pipeline = object_queue_create(0);
+  if (bfs_pipeline == NULL) { return NULL; }
 
-  while (chain != NULL) {
-    object = chain;
-    chain = object->next;
+  do {
+    chain = LIBMTP_Get_Files_And_Folders( socket, step.storage_id, step.object_handle );
 
-    switch (obtain_object_image( &entity, object, required_id )) {
-      case PLAINMTP_GOOD:
-        cursor = prepare_cursor( cursor, &entity );
-        if (cursor != NULL) {
-          set_object_values( &cursor->values, object );
-        } else {
-          wipe_entity_image( &entity );
-        }
-      break;
+    while (chain != NULL) {
+      object = chain;
+      chain = object->next;
 
-      case PLAINMTP_BAD:
-        cursor = NULL;
-      break;
+      switch (obtain_object_image( &entity, object, required_id )) {
+        default:
+          if (object->filetype == LIBMTP_FILETYPE_FOLDER) {
+            data = object_queue_push( bfs_pipeline, object->storage_id, object->item_id );
+            if (data == NULL) { break; }
+            bfs_pipeline = data;
+          }
 
-      default:
-        LIBMTP_destroy_file_t( object );
-      continue;
+          LIBMTP_destroy_file_t( object );
+        continue;
+
+        case PLAINMTP_GOOD:
+          result = prepare_cursor( cursor, &entity );
+          if (result != NULL) {
+            set_object_values( &result->values, object );
+          } else {
+            wipe_entity_image( &entity );
+          }
+        case PLAINMTP_BAD:
+        break;
+      }
+
+      free_libmtp_object_listing( object );
+      goto quit;
     }
 
-    free_libmtp_object_listing( object );
-    return cursor;
-  }
+  } while (object_queue_pop( bfs_pipeline, &step ));
 
-  return NULL;
+quit:
+  free( bfs_pipeline );
+  return result;
 }}
 
 static plainmtp_cursor_s* setup_cursor_by_id( plainmtp_cursor_s* cursor,
