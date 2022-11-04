@@ -278,7 +278,7 @@ int wmain( int argc, wchar_t* argv[] ) {
   );
 
   context = plainmtp_startup();
-  ASSERT_CLEANUP( context == NULL, "failed to initialize plainmtp context" );
+  ASSERT_CLEANUP( context == NULL, "failed to initialize platform context" );
 
   command = argv[1][0];
   switch (command) {
@@ -307,18 +307,18 @@ int wmain( int argc, wchar_t* argv[] ) {
   }
 
   ASSERT_CLEANUP( argc < limit, "not enough arguments" );
-  ASSERT_CLEANUP( swscanf(argv[2], L"%u%n", &device_index, &consumed) < 1, "invalid id" );
-  ASSERT_CLEANUP( device_index >= ((plainmtp_registry_s*)context)->count, "illegal id" );
+  ASSERT_CLEANUP( swscanf(argv[2], L"%u%n", &device_index, &consumed) < 1, "wrong DEVICE_INDEX" );
+  ASSERT_CLEANUP( device_index >= ((plainmtp_registry_s*)context)->count, "no such DEVICE_INDEX" );
 
   argv[2] += consumed;
   base_object_id = (*argv[2] == L':') ? (argv[2]+1) : NULL;
   machine_path = argv[argc];
 
   device = plainmtp_device_start( context, device_index, read_only );
-  ASSERT_CLEANUP( device == NULL, "failed to establish device connection" );
+  ASSERT_CLEANUP( device == NULL, "failed to communicate with the device" );
 
   cursor = plainmtp_cursor_switch( NULL, base_object_id, device );
-  ASSERT_CLEANUP( cursor == NULL, "failed to create object cursor, check object ID if specified" );
+  ASSERT_CLEANUP( cursor == NULL, "failed to locate object, check BASE_OBJECT_ID if specified" );
 
   if (argc > limit) {
     path_end = adjust_cursor( cursor, device, argv[3],
