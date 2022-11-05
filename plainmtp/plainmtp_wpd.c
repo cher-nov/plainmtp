@@ -33,19 +33,19 @@
 #define FILE_SHARE_EXCLUSIVE (0)
 
 #define INVOKE( interface, method ) \
-  (interface)->lpVtbl method ( interface
+  (interface)->lpVtbl method ( (interface)
 
 #define INVOKE_0( interface, method ) \
-  ((interface)->lpVtbl method ( interface ))
+  ( (interface)->lpVtbl method ( interface ) )
 
 #define INVOKE_1( interface, method, argument ) \
-  ((interface)->lpVtbl method ( interface, argument ))
+  ( (interface)->lpVtbl method ( interface, argument ) )
 
 #define RELEASE_INSTANCE( interface ) \
-  do { (void)( interface->lpVtbl->Release( interface ) ); } while(0)
+  ( (void)( (interface)->lpVtbl->Release( interface ) ) )
 
 #define RELEASE_INSTANCE_SAFE( interface ) \
-  if (interface != NULL) RELEASE_INSTANCE( interface )
+  if ((interface) != NULL) RELEASE_INSTANCE( interface )
 
 typedef HRESULT (STDMETHODCALLTYPE *device_info_string_f) (
   IPortableDeviceManager*, LPCWSTR, WCHAR*, DWORD* );
