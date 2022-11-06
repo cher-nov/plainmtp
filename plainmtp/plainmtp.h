@@ -264,8 +264,9 @@ extern plainmtp_bool plainmtp_cursor_transfer
   /* An arbitrary user's pointer that will be passed to callback unchanged. */
   void* custom_state,
 
-  /* A pointer to the cursor that will be set to the new object. If the underlying value is NULL,
-    the function will make a new cursor. Can be NULL to avoid getting any cursor whatsoever. */
+  /* A pointer to the cursor that will be set to the new object. Can refer to the same cursor that
+    is passed to the 'parent' parameter. If the underlying value is NULL, the function will make a
+    new cursor. Use NULL as argument to avoid getting any cursor whatsoever. */
   plainmtp_cursor_s** SET_cursor
 );  /*
   Returns True if object has been created and data transferred successfully, False otherwise.
