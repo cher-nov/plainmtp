@@ -54,14 +54,16 @@ typedef struct zz_entity_location_s {
 
 typedef struct zz_storage_enumeration_s {
   uint32_t id;
-  plainmtp_image_s entity;
+  struct zz_plainmtp_image_s entity;
 
   /* The node refers to itself if the following storages could not be retrieved. */
   struct zz_storage_enumeration_s* next;
 } storage_enumeration_s;
 
 struct zz_plainmtp_context_s {
-  plainmtp_registry_s device_list;  /* MUST be the first field for typecasting to public type. */
+  /* MUST be the first field for typecasting to public type. */
+  struct zz_plainmtp_registry_s device_list;
+
   LIBMTP_raw_device_t* hardware_list;
 };
 
@@ -70,12 +72,12 @@ struct zz_plainmtp_device_s {
   plainmtp_bool read_only;
 };
 
-/* TODO: Unlike WPD wrapper for plainmtp, this wrapper is relied on the public values stored in
-  'current_entity' for the implementation of the cursor logic (for example, duplication of the
-  cursor). They're available to the API user, which can change them, leading to a malfunction. */
 struct zz_plainmtp_cursor_s {
-  plainmtp_image_s current_entity;  /* MUST be the first field for typecasting to public type. */
-  plainmtp_image_s parent_entity;  /* Contains undefined values if no enumeration in progress. */
+  /* MUST be the first field for typecasting to public type. */
+  struct zz_plainmtp_image_s current_entity;
+
+  /* Contains undefined values if no enumeration in progress. */
+  struct zz_plainmtp_image_s parent_entity;
 
   /*
     The members of 'values' field have the following additional semantics:
@@ -223,8 +225,7 @@ plainmtp_context_s* plainmtp_startup(void) {
   LIBMTP_raw_device_t* libmtp_hardware_list = NULL;
   plainmtp_context_s* context;
   int libmtp_device_count, i;
-  char *memory_block = NULL;
-  wchar_t **libmtp_device_names, **libmtp_device_vendors, **libmtp_device_strings;
+  const wchar_t **libmtp_device_names, **libmtp_device_vendors, **libmtp_device_strings;
 {
   if (!is_libmtp_initialized) {
 #   ifndef NDEBUG
@@ -244,12 +245,12 @@ plainmtp_context_s* plainmtp_startup(void) {
       goto failed;
   }
 
-  memory_block = malloc( sizeof(*context) + 3 * (size_t)libmtp_device_count * sizeof(wchar_t*) );
-  if (memory_block == NULL) { goto failed; }
-  context = (plainmtp_context_s*)memory_block;
+  context = malloc( sizeof(*context) + 3 * (size_t)libmtp_device_count *
+    sizeof(*libmtp_device_names) );
+  if (context == NULL) { goto failed; }
 
   if ( libmtp_device_count > 0 ) {
-    libmtp_device_names = (wchar_t**)( memory_block + sizeof(*context) );
+    libmtp_device_names = (const wchar_t**)(context + 1);
     libmtp_device_vendors = libmtp_device_names + libmtp_device_count;
     libmtp_device_strings = libmtp_device_vendors + libmtp_device_count;
 
@@ -294,9 +295,9 @@ void plainmtp_shutdown( plainmtp_context_s* context ) {
   assert( context != NULL );
 
   for (i = 0; i < context->device_list.count; ++i) {
-    free( context->device_list.names[i] );
-    free( context->device_list.vendors[i] );
-    free( context->device_list.strings[i] );
+    free( (void*)context->device_list.names[i] );
+    free( (void*)context->device_list.vendors[i] );
+    free( (void*)context->device_list.strings[i] );
   }
 
   free( context->hardware_list );  /* SHARED MEMORY MOMENT */
@@ -340,7 +341,9 @@ void plainmtp_device_finish( plainmtp_device_s* device ) {
 
 /**************************************************************************************************/
 
-static plainmtp_bool obtain_image_copy( plainmtp_image_s* entity, plainmtp_image_s* source ) {
+static plainmtp_bool obtain_image_copy( struct zz_plainmtp_image_s* entity,
+  struct zz_plainmtp_image_s* source
+) {
   wchar_t* unique_id;
 {
   unique_id = wcsdup( source->id );
@@ -353,8 +356,8 @@ static plainmtp_bool obtain_image_copy( plainmtp_image_s* entity, plainmtp_image
   return PLAINMTP_TRUE;
 }}
 
-static plainmtp_3val obtain_object_image( plainmtp_image_s* entity, LIBMTP_file_t* object,
-  const wpd_guid_plain_i required_id
+static plainmtp_3val obtain_object_image( struct zz_plainmtp_image_s* entity,
+  LIBMTP_file_t* object, const wpd_guid_plain_i required_id
 ) {
   wpd_guid_plain_i plain_guid;
   wchar_t *name, *id_string;
@@ -403,7 +406,7 @@ static plainmtp_3val obtain_object_image( plainmtp_image_s* entity, LIBMTP_file_
   return PLAINMTP_GOOD;
 }}
 
-static plainmtp_3val obtain_storage_image( plainmtp_image_s* entity,
+static plainmtp_3val obtain_storage_image( struct zz_plainmtp_image_s* entity,
   LIBMTP_devicestorage_t* storage, const wchar_t* required_id
 ) {
   wchar_t *unique_id, *storage_name;
@@ -430,7 +433,9 @@ static plainmtp_3val obtain_storage_image( plainmtp_image_s* entity,
   return PLAINMTP_GOOD;
 }}
 
-static plainmtp_bool obtain_device_image( plainmtp_image_s* entity, LIBMTP_mtpdevice_t* socket ) {
+static plainmtp_bool obtain_device_image( struct zz_plainmtp_image_s* entity,
+  LIBMTP_mtpdevice_t* socket
+) {
   wchar_t* unique_id;
 {
   unique_id = wcsdup( wpd_root_persistent_id );
@@ -443,10 +448,10 @@ static plainmtp_bool obtain_device_image( plainmtp_image_s* entity, LIBMTP_mtpde
   return PLAINMTP_TRUE;
 }}
 
-static void wipe_entity_image( plainmtp_image_s* entity ) {
+static void wipe_entity_image( struct zz_plainmtp_image_s* entity ) {
 {
-  free( entity->id );
-  free( entity->name );
+  free( (void*)entity->id );
+  free( (void*)entity->name );
 }}
 
 static void free_libmtp_object_listing( LIBMTP_file_t* chain ) {
@@ -496,7 +501,8 @@ static void clear_cursor( plainmtp_cursor_s* cursor ) {
   }
 }}
 
-static plainmtp_cursor_s* prepare_cursor( plainmtp_cursor_s* cursor, plainmtp_image_s* entity ) {
+static plainmtp_cursor_s* prepare_cursor( plainmtp_cursor_s* cursor,
+  struct zz_plainmtp_image_s* entity ) {
 {
   if (cursor == NULL) {
     cursor = malloc( sizeof(*cursor) );
@@ -514,7 +520,7 @@ static plainmtp_cursor_s* prepare_cursor( plainmtp_cursor_s* cursor, plainmtp_im
 static plainmtp_cursor_s* setup_cursor_to_object( plainmtp_cursor_s* cursor,
   LIBMTP_file_t* object
 ) {
-  plainmtp_image_s entity;
+  struct zz_plainmtp_image_s entity;
 {
   if ( obtain_object_image( &entity, object, NULL ) == PLAINMTP_GOOD ) {
     cursor = prepare_cursor( cursor, &entity );
@@ -532,7 +538,7 @@ static plainmtp_cursor_s* setup_cursor_to_object( plainmtp_cursor_s* cursor,
 static plainmtp_cursor_s* setup_cursor_to_storage( plainmtp_cursor_s* cursor,
   LIBMTP_devicestorage_t* storage, const wchar_t* required_id
 ) {
-  plainmtp_image_s entity;
+  struct zz_plainmtp_image_s entity;
 {
   if ( obtain_storage_image( &entity, storage, required_id ) == PLAINMTP_GOOD ) {
     cursor = prepare_cursor( cursor, &entity );
@@ -550,7 +556,7 @@ static plainmtp_cursor_s* setup_cursor_to_storage( plainmtp_cursor_s* cursor,
 static plainmtp_cursor_s* setup_cursor_to_device( plainmtp_cursor_s* cursor,
   LIBMTP_mtpdevice_t* socket
 ) {
-  plainmtp_image_s entity;
+  struct zz_plainmtp_image_s entity;
 {
   if ( obtain_device_image( &entity, socket ) ) {
     cursor = prepare_cursor( cursor, &entity );
@@ -584,7 +590,7 @@ static plainmtp_cursor_s* setup_cursor_by_lookup( plainmtp_cursor_s* cursor,
 ) {
   plainmtp_cursor_s* result = NULL;
   LIBMTP_file_t *chain, *object;
-  plainmtp_image_s entity;
+  struct zz_plainmtp_image_s entity;
   object_queue_s *bfs_pipeline, *data;
   object_queue_item_s step = {STORAGE_ID_NULL, LIBMTP_FILES_AND_FOLDERS_ROOT};
 {
@@ -689,7 +695,7 @@ static storage_enumeration_s* make_storage_enumeration( LIBMTP_mtpdevice_t* sock
 }}
 
 plainmtp_cursor_s* plainmtp_cursor_assign( plainmtp_cursor_s* cursor, plainmtp_cursor_s* source ) {
-  plainmtp_image_s entity;
+  struct zz_plainmtp_image_s entity;
 {
   if (cursor == source) { return cursor; }
 

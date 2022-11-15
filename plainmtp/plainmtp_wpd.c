@@ -8,6 +8,7 @@
 #define WINVER 0x0601  /* _WIN32_WINNT_WIN7 */
 #define _WIN32_WINNT WINVER
 #define WIN32_LEAN_AND_MEAN
+#define CONST_VTABLE
 #include <Windows.h>
 #include <ObjBase.h>
 #include <PropIdl.h>
@@ -84,7 +85,9 @@ typedef HRESULT (STDMETHODCALLTYPE *device_info_string_f) (
 */
 
 struct zz_plainmtp_context_s {
-  plainmtp_registry_s device_list;  /* MUST be the first field for typecasting to public type. */
+  /* MUST be the first field for typecasting to public type. */
+  struct zz_plainmtp_registry_s device_list;
+
   IPortableDeviceManager* wpd_manager;
   IPortableDeviceKeyCollection* wpd_values_request;
 };
@@ -104,10 +107,13 @@ struct zz_plainmtp_device_s {
   separately (for example, in a struct, containing 'uint64_t size' and IPortableDeviceValues). To
   do this, make_values_request() should be split into requests for regular and temporary values. */
 struct zz_plainmtp_cursor_s {
-  plainmtp_image_s current_object;  /* MUST be the first field for typecasting to public type. */
-  IPortableDeviceValues* current_values;
+  /* MUST be the first field for typecasting to public type. */
+  struct zz_plainmtp_image_s current_object;
 
-  plainmtp_image_s parent_object;  /* Contains undefined values if parent_values == NULL. */
+  /* Contains undefined values if parent_values == NULL. */
+  struct zz_plainmtp_image_s parent_object;
+
+  IPortableDeviceValues* current_values;
   IPortableDeviceValues* parent_values;  /* If not NULL, there's an enumeration in progress. */
 
   /* If NULL, the current object was never enumerated, or enumeration has ended with an error. */
@@ -154,6 +160,33 @@ static LPWSTR make_device_info( IPortableDeviceManager* wpd_manager, LPCWSTR dev
   }
 
   return NULL;
+}}
+
+/* NB: We need this rather meaningless function because the C95 standard prohibits to copy a value
+  of type 'T*' into an object of type 'const T*' via a pointer of type 'T**', while at the same
+  time assigning them without an explicit typecast is permitted. So we're unable to just directly
+  pass a LPCWSTR buffer to the ->GetDevices() method that expects a LPWSTR one.
+  https://stackoverflow.com/questions/74370703/modify-pointer-to-const-variable-const-int-through-a-pointer-to-pointer-to
+  Seems like an arbitrary (i.e. unnecessarily restrictive) constraint of C95 at least. */
+static DWORD obtain_wpd_device_ids( IPortableDeviceManager* wpd_manager, LPCWSTR* buffer,
+  DWORD max_count _In_range_(1, max_count) /* suppress C6385 (shut up, MSVC) */
+) {
+  HRESULT hr;
+  LPWSTR* wpd_device_ids;
+  DWORD i;
+{
+  wpd_device_ids = CoTaskMemAlloc( max_count * sizeof(*wpd_device_ids) );
+  if (wpd_device_ids == NULL) { return 0; }
+
+  hr = INVOKE( wpd_manager, ->GetDevices ), wpd_device_ids, &max_count );
+  if (SUCCEEDED(hr)) {
+    for (i = 0; i < max_count; ++i) { buffer[i] = wpd_device_ids[i]; }
+  } else {
+    max_count = 0;
+  }
+
+  CoTaskMemFree( wpd_device_ids );
+  return max_count;
 }}
 
 /* NB: This will successfully return an empty string in case of invalid PUID specified. */
@@ -245,11 +278,9 @@ static plainmtp_context_s* make_library_context(void) {
   HRESULT hr;
   IPortableDeviceManager* wpd_manager;
   IPortableDeviceKeyCollection* wpd_values_request;
-  plainmtp_context_s* context;
-  DWORD wpd_device_count = 0;
-  char* memory_block = NULL;
-  LPWSTR *wpd_device_ids, *wpd_device_names, *wpd_device_vendors, *wpd_device_strings;
-  SIZE_T i;
+  plainmtp_context_s* context = NULL;
+  DWORD wpd_device_count = 0, i;
+  LPCWSTR *wpd_device_ids, *wpd_device_names, *wpd_device_vendors, *wpd_device_strings;
 {
   hr = CoCreateInstance( &CLSID_PortableDeviceManager, NULL, CLSCTX_INPROC_SERVER,
     &IID_IPortableDeviceManager, &wpd_manager );
@@ -261,14 +292,13 @@ static plainmtp_context_s* make_library_context(void) {
   wpd_values_request = make_values_request();
   if (wpd_values_request == NULL) { goto failed_main; }
 
-  memory_block = CoTaskMemAlloc( sizeof(*context) + 4 * (size_t)wpd_device_count *
-    sizeof(wchar_t*) );
-  if (memory_block == NULL) { goto failed_full; }
-  context = (plainmtp_context_s*)memory_block;
+  context = CoTaskMemAlloc( sizeof(*context) + 4 * (size_t)wpd_device_count *
+    sizeof(*wpd_device_ids) );
+  if (context == NULL) { goto failed_full; }
 
   if ( wpd_device_count > 0 ) {
-    wpd_device_ids = (LPWSTR*)( memory_block + sizeof(*context) );
-    (void)(INVOKE( wpd_manager, ->GetDevices ), wpd_device_ids, &wpd_device_count ));
+    wpd_device_ids = (LPCWSTR*)(context + 1);
+    wpd_device_count = obtain_wpd_device_ids( wpd_manager, wpd_device_ids, wpd_device_count );
     if (wpd_device_count == 0) { goto failed_full; }
 
     wpd_device_names = wpd_device_ids + wpd_device_count;
@@ -302,7 +332,7 @@ static plainmtp_context_s* make_library_context(void) {
   return context;
 
 failed_full:
-  CoTaskMemFree( memory_block );
+  CoTaskMemFree( context );
   RELEASE_INSTANCE( wpd_values_request );
 
 failed_main:
@@ -393,10 +423,10 @@ void plainmtp_shutdown( plainmtp_context_s* context ) {
   */
 
   for (i = 0; i < context->device_list.count; ++i) {
-    CoTaskMemFree( context->device_list.ids[i] );
-    CoTaskMemFree( context->device_list.names[i] );
-    CoTaskMemFree( context->device_list.vendors[i] );
-    CoTaskMemFree( context->device_list.strings[i] );
+    CoTaskMemFree( (void*)context->device_list.ids[i] );
+    CoTaskMemFree( (void*)context->device_list.names[i] );
+    CoTaskMemFree( (void*)context->device_list.vendors[i] );
+    CoTaskMemFree( (void*)context->device_list.strings[i] );
   }
 
   RELEASE_INSTANCE( context->wpd_manager );
@@ -483,24 +513,25 @@ void plainmtp_device_finish( plainmtp_device_s* device ) {
 
 /**************************************************************************************************/
 
-static void wipe_object_image( plainmtp_image_s* object ) {
+static void wipe_object_image( struct zz_plainmtp_image_s* object ) {
 {
-  CoTaskMemFree( object->id );
-  CoTaskMemFree( object->name );
+  CoTaskMemFree( (void*)object->id );
+  CoTaskMemFree( (void*)object->name );
 }}
 
 /* TODO: Consider trying more properties for name. Devices connected using Mass Storage Class
   protocol may not report WPD_OBJECT_NAME for the root (DEVICE) object - e.g. Sony DSC-H50. */
-static plainmtp_bool obtain_object_image( plainmtp_image_s* object,
+static plainmtp_bool obtain_object_image( struct zz_plainmtp_image_s* object,
   IPortableDeviceValues* values
 ) {
   HRESULT hr;
+  LPWSTR tempstr;
   PROPVARIANT propvar;
   SYSTEMTIME systime;
-  plainmtp_image_s result = {NULL};
 {
-  hr = INVOKE( values, ->GetStringValue ), &WPD_OBJECT_PERSISTENT_UNIQUE_ID, &result.id );
+  hr = INVOKE( values, ->GetStringValue ), &WPD_OBJECT_PERSISTENT_UNIQUE_ID, &tempstr );
   if (FAILED(hr)) { return PLAINMTP_FALSE; }
+  object->id = tempstr;
 
   PropVariantInit( &propvar );
   hr = INVOKE( values, ->GetValue ), &WPD_OBJECT_DATE_MODIFIED, &propvar );
@@ -509,31 +540,34 @@ static plainmtp_bool obtain_object_image( plainmtp_image_s* object,
     && (V_VT(&propvar) == VT_DATE)
     && VariantTimeToSystemTime(propvar.date, &systime)
   ) {
-    result.datetime.tm_year = systime.wYear - 1900;
-    result.datetime.tm_mon = systime.wMonth - 1;
-    result.datetime.tm_mday = systime.wDay;
-    result.datetime.tm_hour = systime.wHour;
-    result.datetime.tm_min = systime.wMinute;
-    result.datetime.tm_sec = systime.wSecond;
-    result.datetime.tm_wday = systime.wDayOfWeek;
-    result.datetime.tm_yday = -1;  /* To be adjusted by mktime() call. */
-    (void)mktime( &result.datetime );
+    object->datetime.tm_year = systime.wYear - 1900;
+    object->datetime.tm_mon = systime.wMonth - 1;
+    object->datetime.tm_mday = systime.wDay;
+    object->datetime.tm_hour = systime.wHour;
+    object->datetime.tm_min = systime.wMinute;
+    object->datetime.tm_sec = systime.wSecond;
+    object->datetime.tm_wday = systime.wDayOfWeek;
+    object->datetime.tm_yday = -1;  /* To be adjusted by mktime() call. */
+    (void)mktime( &object->datetime );
 
-    result.datetime.tm_isdst = -1;  /* DST information is not available. */
+    object->datetime.tm_isdst = -1;  /* DST information is not available. */
+  } else {
+    object->datetime.tm_mday = 0;  /* There's no datetime information at all. */
   }
 
   (void)PropVariantClear( &propvar );
 
-  hr = INVOKE( values, ->GetStringValue ), &WPD_OBJECT_ORIGINAL_FILE_NAME, &result.name );
+  hr = INVOKE( values, ->GetStringValue ), &WPD_OBJECT_ORIGINAL_FILE_NAME, &tempstr );
   if (SUCCEEDED(hr)) { goto quit; }
 
   /* This is required at least for storage objects because they don't have a proper filename. */
-  hr = INVOKE( values, ->GetStringValue ), &WPD_OBJECT_HINT_LOCATION_DISPLAY_NAME, &result.name );
+  hr = INVOKE( values, ->GetStringValue ), &WPD_OBJECT_HINT_LOCATION_DISPLAY_NAME, &tempstr );
   if (SUCCEEDED(hr)) { goto quit; }
-  (void)(INVOKE( values, ->GetStringValue ), &WPD_OBJECT_NAME, &result.name ));
+  hr = INVOKE( values, ->GetStringValue ), &WPD_OBJECT_NAME, &tempstr );
+  if (FAILED(hr)) { tempstr = NULL; }
 
 quit:
-  *object = result;
+  object->name = tempstr;
   return PLAINMTP_TRUE;
 }}
 
@@ -554,7 +588,7 @@ static void clear_cursor( plainmtp_cursor_s* cursor ) {
 static plainmtp_cursor_s* setup_cursor_by_values( plainmtp_cursor_s* cursor,
   IPortableDeviceValues* values
 ) {
-  plainmtp_image_s object;
+  struct zz_plainmtp_image_s object;
 {
   if ( !obtain_object_image( &object, values ) ) { return NULL; }
 

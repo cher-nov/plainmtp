@@ -57,8 +57,8 @@ typedef void* (*plainmtp_data_f)
   pointer for the next call (in "active" mode) or any pointer that is not NULL (in "passive" mode).
 */
 
-/* Library context. Can be typecast to (const plainmtp_registry_s*) type to access information
-  about available devices, connected to the machine. */
+/* Library context. Can be typecast to 'plainmtp_registry_s*' type to access information about
+  available devices connected to the machine. */
 typedef struct zz_plainmtp_context_s plainmtp_context_s;
 
 /* Device handle. */
@@ -66,34 +66,34 @@ typedef struct zz_plainmtp_device_s plainmtp_device_s;
 
 /* Cursor. This is the main primitive to access entities on the device and perform operations on
   them (enumerate child entities, create new ones, read their binary data etc). Points to the only
-  one specific entity at a time. Can be typecast to (const plainmtp_image_s*) type to access
-  information about it. There's never a cursor in invalid state, so any operation on it is either
-  success or failure. But they're not being updated automatically, so it's possible to obtain a
-  cursor that will point to a non-existent entity (e.g. if it was later deleted by someone). */
+  one specific entity at a time. Can be typecast to 'plainmtp_image_s*' type to access information
+  about it. There's never a cursor in invalid state, so any operation on it is either success or
+  failure. But they're not being updated automatically, so it's possible to obtain a cursor that
+  will point to a non-existent entity (e.g. if it was later deleted by someone). */
 typedef struct zz_plainmtp_cursor_s plainmtp_cursor_s;
 
 typedef struct zz_plainmtp_registry_s {
   size_t count;
 
   /* BEWARE: All the next members AND their fields may be NULL! */
-  wchar_t** ids;
-  wchar_t** names;
-  wchar_t** vendors;
-  wchar_t** strings;
-} plainmtp_registry_s;
+  const wchar_t** ids;
+  const wchar_t** names;
+  const wchar_t** vendors;
+  const wchar_t** strings;
+} const plainmtp_registry_s;
 
 typedef struct zz_plainmtp_image_s {
   /* Entity's unique ID that persists between connection sessions. Guaranteed not to be NULL.
     IMPORTANT: This is NEITHER a Persistent Unique Object Identifier (PUID) from the original MTP
     standard NOR guaranteed to be represented in the same GUID format as in PUID. */
-  wchar_t* id;
+  const wchar_t* id;
 
   /* Either a file name or any other descriptive string that can be used as such. Can be NULL. */
-  wchar_t* name;
+  const wchar_t* name;
 
   /* Date/time in standard portable C format. When not available, datetime.tm_mday is set to 0. */
   struct tm datetime;
-} plainmtp_image_s;
+} const plainmtp_image_s;
 
 
 #ifdef __cplusplus
@@ -164,8 +164,8 @@ extern plainmtp_cursor_s* plainmtp_cursor_switch
 */
 
 /* Updates the cursor information about the entity that is accessible by user through typecasting
-  cursor to (const plainmtp_image_s*) type. If there's an enumeration in progress, it will be
-  finished if function succeeds. */
+  cursor to 'plainmtp_image_s*' type. If there's an enumeration in progress, it will be finished if
+  function succeeds. */
 extern plainmtp_bool plainmtp_cursor_update
 (
   /* Cursor to be updated. */
