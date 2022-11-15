@@ -76,24 +76,24 @@ typedef struct zz_plainmtp_registry_s {
   size_t count;
 
   /* BEWARE: All the next members AND their fields may be NULL! */
-  wchar_t** ids;
-  wchar_t** names;
-  wchar_t** vendors;
-  wchar_t** strings;
-} plainmtp_registry_s;
+  const wchar_t** ids;
+  const wchar_t** names;
+  const wchar_t** vendors;
+  const wchar_t** strings;
+} const plainmtp_registry_s;
 
 typedef struct zz_plainmtp_image_s {
   /* Entity's unique ID that persists between connection sessions. Guaranteed not to be NULL.
     IMPORTANT: This is NEITHER a Persistent Unique Object Identifier (PUID) from the original MTP
     standard NOR guaranteed to be represented in the same GUID format as in PUID. */
-  wchar_t* id;
+  const wchar_t* id;
 
   /* Either a file name or any other descriptive string that can be used as such. Can be NULL. */
-  wchar_t* name;
+  const wchar_t* name;
 
   /* Date/time in standard portable C format. When not available, datetime.tm_mday is set to 0. */
   struct tm datetime;
-} plainmtp_image_s;
+} const plainmtp_image_s;
 
 
 #ifdef __cplusplus
