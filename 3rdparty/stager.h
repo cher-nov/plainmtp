@@ -1,11 +1,16 @@
 /*
   stager - DEFER-like macro for multiple-phase initialization with guaranteed cleanup on failure.
-  Licensed under conditions of the original WTFPL license by Sam Hocevar, version 2 (December 2004).
+  Licensed under the original WTFPL license by Sam Hocevar, version 2 (December 2004).
   Copyright (c) 2022, Dmitry D. Chernov
 */
 
 #ifndef ZZ_STAGER_H_IG
 #define ZZ_STAGER_H_IG
+
+/*
+  GCC-8: gcc -std=c89 -pedantic -Wall -Wextra -E -P -x c -o stager.i stager.h
+  MSVC-2019: cl /Za /permissive- /Wall /P /EP /Tc stager.h
+*/
 
 #define STAGER_BLOCK( VariableName ) \
   for (VariableName = 1; VariableName != 0; VariableName = -VariableName+1) \
@@ -20,9 +25,10 @@
 
 /******************************************************************************/
 #ifdef STAGER_COMPILE_AND_TEST
+
 /*
-  GCC: gcc -std=c89 -pedantic -Wall -Wextra -O3 -DSTAGER_COMPILE_AND_TEST -x c -o stager stager.h
-  MSVC: cl /Za /permissive- /Wall /O2 /DSTAGER_COMPILE_AND_TEST /Tc stager.h
+  GCC-8: gcc -std=c89 -pedantic -Wall -Wextra -O3 -DSTAGER_COMPILE_AND_TEST -x c -o stager stager.h
+  MSVC-2019: cl /Za /permissive- /Wall /O2 /DSTAGER_COMPILE_AND_TEST /Tc stager.h
 */
 
 #ifdef NDEBUG
@@ -94,6 +100,6 @@ int main(void) {
 }
 
 #endif /* STAGER_COMPILE_AND_TEST */
-
+/******************************************************************************/
 
 #endif /* ZZ_STAGER_H_IG */
