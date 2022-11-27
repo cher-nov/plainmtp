@@ -228,9 +228,6 @@ plainmtp_context_s* plainmtp_startup(void) {
   const wchar_t **libmtp_device_names, **libmtp_device_vendors, **libmtp_device_strings;
 {
   if (!is_libmtp_initialized) {
-#   ifndef NDEBUG
-    LIBMTP_Set_Debug( LIBMTP_DEBUG_ALL );
-#   endif
     LIBMTP_Init();
     is_libmtp_initialized = PLAINMTP_TRUE;
   }
