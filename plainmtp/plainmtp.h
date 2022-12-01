@@ -1,14 +1,10 @@
 #ifndef ZZ_PLAINMTP_MAIN_H_IG
 #define ZZ_PLAINMTP_MAIN_H_IG
 
-/* TODO: Check for C95 / wchar_t support properly, because __STDC_VERSION__ is undefined on MSVC.
-  https://en.wikipedia.org/wiki/ANSI_C#C95
-  https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros
-
-#if !defined(__STDC_VERSION__) || (__STDC_VERSION__ < 199409L)
-  #error __STDC_VERSION__ This API requires C95 language compatibility.
+/* Only check the version if the compiler unambiguously declares conformance to some C standard. */
+#if (__STDC__ == 1) && !defined(__STDC_VERSION__)  /* Not '< 199409L' is for semi-compatibility. */
+  #error plainmtp: Compatibility with the C95 revision of the C programming language is REQUIRED.
 #endif
-*/
 
 #include <stddef.h>
 #include <time.h>
