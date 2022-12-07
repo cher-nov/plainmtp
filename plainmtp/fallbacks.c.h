@@ -8,7 +8,7 @@
   https://stackoverflow.com/questions/2290587/gcc-style-weak-linking-in-visual-studio */
 
 #ifdef PLAINMTP_FALLBACK_WCSDUP
-  extern wchar_t* zz_plainmtp_wcsdup( const wchar_t* );
+  PLAINMTP_EXTERN wchar_t* zz_plainmtp_wcsdup( const wchar_t* );
 #else
   #define zz_plainmtp_wcsdup wcsdup
 #endif

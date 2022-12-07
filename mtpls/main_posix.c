@@ -12,10 +12,10 @@ FILE* _wfopen( const wchar_t* filename, const wchar_t* mode ) {
   FILE* result = NULL;
   char *mbs_filename, *mbs_mode;
 {
-  mbs_filename = make_multibyte_string( filename );
+  mbs_filename = PLAINMTP(make_multibyte_string( filename ));
   if (mbs_filename == NULL) { return NULL; }
 
-  mbs_mode = make_multibyte_string( mode );
+  mbs_mode = PLAINMTP(make_multibyte_string( mode ));
   if (mbs_mode != NULL) {
     result = fopen( mbs_filename, mbs_mode );
     free( mbs_mode );
@@ -45,7 +45,7 @@ int main( int argc, char* argv[] ) {
   argv_wmain = wstr_argv + argc;
 
   for (i = 0; i < argc; ++i) {
-    wstr_argv[i] = make_wide_string_from_utf8( argv[i], NULL );
+    wstr_argv[i] = PLAINMTP(make_wide_string_from_utf8( argv[i], NULL ));
     if (wstr_argv[i] == NULL) { goto cleanup; }
     argv_wmain[i] = wstr_argv[i];
   }

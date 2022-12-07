@@ -154,7 +154,7 @@ static wchar_t* make_device_info( LIBMTP_mtpdevice_t* socket, device_info_string
   utf8_string = method( socket );
   if (utf8_string == NULL) { return NULL; }
 
-  result = make_wide_string_from_utf8( utf8_string, NULL );
+  result = PLAINMTP(make_wide_string_from_utf8( utf8_string, NULL ));
   free( utf8_string );  /* SHARED MEMORY MOMENT */
 
   return result;
@@ -165,7 +165,7 @@ static wchar_t* make_storage_name( LIBMTP_devicestorage_t* values ) {
   const wchar_t* label;
 {
   if (WSTRING_PRINTABLE( values->StorageDescription )) {
-    result = make_wide_string_from_utf8( values->StorageDescription, NULL );
+    result = PLAINMTP(make_wide_string_from_utf8( values->StorageDescription, NULL ));
     if (result != NULL) { return result; }
   }
 
@@ -188,15 +188,16 @@ static wchar_t* make_storage_unique_id( LIBMTP_devicestorage_t* storage,
   size_t volume_string_length;
 {
   if (storage->VolumeIdentifier != NULL) {
-    volume_string = make_wide_string_from_utf8( storage->VolumeIdentifier, &volume_string_length );
+    volume_string = PLAINMTP(make_wide_string_from_utf8( storage->VolumeIdentifier,
+      &volume_string_length ));
     if (volume_string == NULL) { return NULL; }
   } else {
     volume_string = NULL;
     volume_string_length = 0;
   }
 
-  result = make_wpd_storage_unique_id( storage->id, storage->MaxCapacity, volume_string,
-    volume_string_length );
+  result = PLAINMTP(make_wpd_storage_unique_id( storage->id, storage->MaxCapacity, volume_string,
+    volume_string_length ));
 
   if ( (OUT_volume_string != NULL) && (result != NULL) ) {
     *OUT_volume_string = volume_string;
@@ -361,7 +362,7 @@ static plainmtp_3val obtain_object_image( struct zz_plainmtp_image_s* entity,
   wchar_t *name, *id_string;
 {
   if (object->filename != NULL) {
-    name = make_wide_string_from_utf8( object->filename, NULL );
+    name = PLAINMTP(make_wide_string_from_utf8( object->filename, NULL ));
     if (name == NULL) { return PLAINMTP_BAD; }
   } else {
     name = NULL;
@@ -376,8 +377,8 @@ static plainmtp_3val obtain_object_image( struct zz_plainmtp_image_s* entity,
     the wrapper should not have the need in this algorithm at all, because libmtp supports only MTP
     and ignores PTP devices. */
 
-  get_wpd_fallback_object_id( plain_guid, name, object->item_id, object->parent_id,
-    object->storage_id, (uint32_t)object->filesize );
+  PLAINMTP(get_wpd_fallback_object_id( plain_guid, name, object->item_id, object->parent_id,
+    object->storage_id, (uint32_t)object->filesize ));
 
   /* BEWARE: Short-circuit evaluation matters here! */
   if ( (required_id != NULL)
@@ -393,7 +394,7 @@ static plainmtp_3val obtain_object_image( struct zz_plainmtp_image_s* entity,
     return PLAINMTP_BAD;
   }
 
-  write_wpd_plain_guid( plain_guid, id_string );
+  PLAINMTP(write_wpd_plain_guid( plain_guid, id_string ));
 
   entity->id = id_string;
   entity->name = name;
@@ -436,7 +437,7 @@ static plainmtp_bool obtain_device_image( struct zz_plainmtp_image_s* entity,
 ) {
   wchar_t* unique_id;
 {
-  unique_id = zz_plainmtp_wcsdup( wpd_root_persistent_id );
+  unique_id = zz_plainmtp_wcsdup( PLAINMTP(wpd_root_persistent_id) );
   if (unique_id == NULL) { return PLAINMTP_FALSE; }
   entity->id = unique_id;
 
@@ -597,7 +598,7 @@ static plainmtp_cursor_s* setup_cursor_by_lookup( plainmtp_cursor_s* cursor,
     LIBMTP_Get_Folder_List() is not suitable because it gets the full object list internally.
     Moreover, it doesn't work in the uncached mode: https://github.com/libmtp/libmtp/issues/129 */
 
-  bfs_pipeline = object_queue_create(0);
+  bfs_pipeline = PLAINMTP(object_queue_create(0));
   if (bfs_pipeline == NULL) { return NULL; }
 
   do {
@@ -610,7 +611,8 @@ static plainmtp_cursor_s* setup_cursor_by_lookup( plainmtp_cursor_s* cursor,
       switch (obtain_object_image( &entity, object, required_id )) {
         default:
           if (object->filetype == LIBMTP_FILETYPE_FOLDER) {
-            data = object_queue_push( bfs_pipeline, object->storage_id, object->item_id );
+            data = PLAINMTP(object_queue_push( bfs_pipeline, object->storage_id,
+              object->item_id ));
             if (data == NULL) { break; }
             bfs_pipeline = data;
           }
@@ -633,7 +635,7 @@ static plainmtp_cursor_s* setup_cursor_by_lookup( plainmtp_cursor_s* cursor,
       goto quit;
     }
 
-  } while (object_queue_pop( bfs_pipeline, &step ));
+  } while ( PLAINMTP(object_queue_pop( bfs_pipeline, &step )) );
 
 quit:
   free( bfs_pipeline );
@@ -722,16 +724,16 @@ plainmtp_cursor_s* plainmtp_cursor_switch( plainmtp_cursor_s* cursor, const wcha
   assert( device != NULL );
 
   /* BEWARE: Short-circuit evaluation matters here! */
-  if ( (entity_id == NULL) || (wcscmp( entity_id, wpd_root_persistent_id ) == 0) ) {
+  if ( (entity_id == NULL) || (wcscmp( entity_id, PLAINMTP(wpd_root_persistent_id) ) == 0) ) {
     return setup_cursor_to_device( cursor, device->libmtp_socket );
   }
 
-  if (parse_wpd_storage_unique_id( entity_id, &storage_id )) {
+  if ( PLAINMTP(parse_wpd_storage_unique_id( entity_id, &storage_id )) ) {
     return setup_cursor_by_id( cursor, device->libmtp_socket, storage_id, PLAINMTP_TRUE,
       entity_id );
   }
 
-  if (read_wpd_plain_guid( object_id, entity_id )) {
+  if ( PLAINMTP(read_wpd_plain_guid( object_id, entity_id )) ) {
     return setup_cursor_by_lookup( cursor, device->libmtp_socket, object_id );
   }
 
@@ -979,7 +981,7 @@ plainmtp_bool plainmtp_cursor_transfer( plainmtp_cursor_s* parent, plainmtp_devi
   if (device->read_only) { return PLAINMTP_FALSE; }
   if ( get_cursor_state( parent, &descriptor ) == CURSOR_ENTITY_DEVICE ) { return PLAINMTP_FALSE; }
 
-  metadata.filename = make_multibyte_string( name );
+  metadata.filename = PLAINMTP(make_multibyte_string( name ));
   if (metadata.filename == NULL) { return PLAINMTP_FALSE; }
 
   metadata.parent_id = descriptor.object_handle;

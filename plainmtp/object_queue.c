@@ -9,12 +9,13 @@
 #define ACCESS_ELEMENTS( Queue ) \
   ( (object_queue_item_s*) ((Queue)+1) )
 
-struct zz_object_queue_s {
+struct zz_plainmtp_object_queue_s {
   size_t first;
   size_t next;
   size_t capacity;
 };
 
+#define object_queue_create PLAINMTP(object_queue_create)
 object_queue_s* object_queue_create( size_t capacity ) {
   object_queue_s* result;
 {
@@ -33,6 +34,7 @@ object_queue_s* object_queue_create( size_t capacity ) {
   return result;
 }}
 
+#define object_queue_push PLAINMTP(object_queue_push)
 object_queue_s* object_queue_push( object_queue_s* data, uint32_t storage_id,
   uint32_t object_handle
 ) {
@@ -73,6 +75,7 @@ insert:
   return data;
 }}
 
+#define object_queue_pop PLAINMTP(object_queue_pop)
 plainmtp_bool object_queue_pop( object_queue_s* data, object_queue_item_s* value ) {
 {
   if (data->first == data->next) { return PLAINMTP_FALSE; }

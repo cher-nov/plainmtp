@@ -14,6 +14,7 @@
   first character specifies the entity type and the item list specifies some of its properties. */
 #define WPD_STORAGE_ID_FORMAT_PREFIX L"SID-{%"WPRINTF_INT32_MODIFIER L"X,"
 
+#define wpd_root_persistent_id PLAINMTP(wpd_root_persistent_id)
 const wchar_t wpd_root_persistent_id[] = L"DEVICE";
 
 /* NB: We assume 'unsigned int' here because pstdint.h doesn't provide PRINTF_INT8_MODIFIER. */
@@ -25,6 +26,7 @@ static const wchar_t wpd_guid_format_string[] =
 
 #define WPD_GUID_FORMAT_COUNT 16
 
+#define make_wpd_storage_unique_id PLAINMTP(make_wpd_storage_unique_id)
 wchar_t* make_wpd_storage_unique_id( uint32_t storage_id, uint64_t capacity,
   const wchar_t* volume_string, size_t volume_string_length
 ) {
@@ -65,11 +67,13 @@ wchar_t* make_wpd_storage_unique_id( uint32_t storage_id, uint64_t capacity,
   return NULL;
 }}
 
+#define parse_wpd_storage_unique_id PLAINMTP(parse_wpd_storage_unique_id)
 plainmtp_bool parse_wpd_storage_unique_id( const wchar_t* source, uint32_t* OUT_storage_id ) {
 {
   return ( swscanf( source, WPD_STORAGE_ID_FORMAT_PREFIX, OUT_storage_id ) == 1 );
 }}
 
+#define read_wpd_plain_guid PLAINMTP(read_wpd_plain_guid)
 plainmtp_bool read_wpd_plain_guid( wpd_guid_plain_i result, const wchar_t* source ) {
   int filled;
   unsigned int values[WPD_GUID_FORMAT_COUNT];
@@ -85,6 +89,7 @@ plainmtp_bool read_wpd_plain_guid( wpd_guid_plain_i result, const wchar_t* sourc
   return PLAINMTP_TRUE;
 }}
 
+#define write_wpd_plain_guid PLAINMTP(write_wpd_plain_guid)
 void write_wpd_plain_guid( const wpd_guid_plain_i source, wchar_t* result ) {
 {
 # define X(i) (unsigned int)(source[i])
@@ -124,6 +129,7 @@ void write_wpd_plain_guid( const wpd_guid_plain_i source, wchar_t* result ) {
   NB: In PTP, object size is only 32-bit wide, not 64-bit, so it's applicable here.
 */
 
+#define get_wpd_fallback_object_id PLAINMTP(get_wpd_fallback_object_id)
 void get_wpd_fallback_object_id( wpd_guid_plain_i result, const wchar_t* name, uint32_t handle,
   uint32_t parent, uint32_t storage, uint32_t size
 ) {

@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 
+#define utf8_strlen PLAINMTP(utf8_strlen)
 size_t utf8_strlen( const char* utf8_string ) {
   size_t result = 0;
 {
@@ -24,6 +25,7 @@ size_t utf8_strlen( const char* utf8_string ) {
   }
 }}
 
+#define make_wide_string_from_utf8 PLAINMTP(make_wide_string_from_utf8)
 wchar_t* make_wide_string_from_utf8( const char* utf8_string, size_t* OUT_length ) {
   wchar_t* result;
   unsigned long codepoint;
@@ -70,6 +72,7 @@ wchar_t* make_wide_string_from_utf8( const char* utf8_string, size_t* OUT_length
 }}
 
 /* TODO: This implementation is locale-dependent, should we do anything about it? */
+#define make_multibyte_string PLAINMTP(make_multibyte_string)
 char* make_multibyte_string( const wchar_t* source ) {
   char* result;
   size_t length;

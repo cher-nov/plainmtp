@@ -9,4 +9,12 @@ typedef enum {
   PLAINMTP_NONE = ~PLAINMTP_FALSE  /* "nicht einmal falsch", lol */
 } plainmtp_3val;  /* "three-valued" or "trivalent" */
 
+/**************************************************************************************************/
+
+#ifndef __cplusplus
+  #define PLAINMTP_EXTERN extern
+#else
+  #define PLAINMTP_EXTERN extern "C"
+#endif
+
 #endif /* ZZ_PLAINMTP_COMMON_H_IG */
