@@ -26,10 +26,10 @@ extern int64_t _ftelli64( FILE* stream );
 static const wchar_t* const empty_wstr = L"";
 #define WSNN(string) ( (string) != NULL ? (string) : empty_wstr )
 
-static plainmtp_bool seek_object( plainmtp_cursor_s* cursor, plainmtp_device_s* device,
-  const wchar_t* name, size_t length
+static plainmtp_bool seek_object( struct plainmtp_cursor_s* cursor,
+  struct plainmtp_device_s* device, const wchar_t* name, size_t length
 ) {
-  plainmtp_image_s* const image = (plainmtp_image_s*)cursor;
+  plainmtp_cursor_s* const image = (plainmtp_cursor_s*)cursor;
 {
   while (plainmtp_cursor_select( cursor, device )) {
     if (image->name == NULL) { continue; }
@@ -45,8 +45,8 @@ static plainmtp_bool seek_object( plainmtp_cursor_s* cursor, plainmtp_device_s* 
 }}
 
 /* NB: Both PTP and MTP technically allow empty and/or even duplicate filenames. */
-static wchar_t* adjust_cursor( plainmtp_cursor_s* cursor, plainmtp_device_s* device, wchar_t* path,
-  size_t* OUT_filename_length
+static wchar_t* adjust_cursor( struct plainmtp_cursor_s* cursor, struct plainmtp_device_s* device,
+  wchar_t* path, size_t* OUT_filename_length
 ) {
   size_t length = 0;
 {
@@ -69,9 +69,9 @@ static wchar_t* adjust_cursor( plainmtp_cursor_s* cursor, plainmtp_device_s* dev
   return path;
 }}
 
-static int command_enumerate( plainmtp_context_s* context ) {
+static int command_enumerate( struct plainmtp_context_s* context ) {
   size_t i;
-  plainmtp_registry_s* const registry = (plainmtp_registry_s*)context;
+  plainmtp_context_s* const registry = (plainmtp_context_s*)context;
 {
   PUT_TEXT( "Devices available: %lu\n"), (unsigned long)registry->count );
   for (i = 0; i < registry->count; ++i) {
@@ -86,9 +86,9 @@ static int command_enumerate( plainmtp_context_s* context ) {
   return EXIT_SUCCESS;
 }}
 
-static int command_list( plainmtp_cursor_s* cursor, plainmtp_device_s* device ) {
+static int command_list( struct plainmtp_cursor_s* cursor, struct plainmtp_device_s* device ) {
   size_t count = 0;
-  plainmtp_image_s* const image = (plainmtp_image_s*)cursor;
+  plainmtp_cursor_s* const image = (plainmtp_cursor_s*)cursor;
 {
   PUT_TEXT( "\n%ls\t: %ls\n\n"), WSNN(image->name), image->id );
 
@@ -138,7 +138,7 @@ static void* CB_receive_file( void* chunk, size_t size, void* file ) {
   return (size != 0) ? chunk : NULL;
 }}
 
-static int command_receive( plainmtp_cursor_s* cursor, plainmtp_device_s* device,
+static int command_receive( struct plainmtp_cursor_s* cursor, struct plainmtp_device_s* device,
   const wchar_t* output_file
 ) {
   plainmtp_bool result;
@@ -198,13 +198,13 @@ cleanup:
   return NULL;
 }}
 
-static int command_transfer( plainmtp_cursor_s* cursor, plainmtp_device_s* device,
+static int command_transfer( struct plainmtp_cursor_s* cursor, struct plainmtp_device_s* device,
   const wchar_t* source_file, const wchar_t* object_name
 ) {
   plainmtp_bool result = PLAINMTP_FALSE;
   FILE* source;
   int64_t size;
-  plainmtp_image_s* const image = (plainmtp_image_s*)cursor;
+  plainmtp_cursor_s* const image = (plainmtp_cursor_s*)cursor;
 {
   source = _wfopen( source_file, L"rb" );
   if (source == NULL) {
@@ -246,9 +246,9 @@ size_error:
 /* TODO: Use proper argument parsing. Why there's no such libraries with wchar_t support?.. */
 int wmain( int argc, wchar_t* argv[] ) {
   int exit_code = EXIT_FAILURE;
-  plainmtp_context_s* context = NULL;
-  plainmtp_device_s* device = NULL;
-  plainmtp_cursor_s* cursor = NULL;
+  struct plainmtp_context_s* context = NULL;
+  struct plainmtp_device_s* device = NULL;
+  struct plainmtp_cursor_s* cursor = NULL;
   wchar_t command;
   unsigned int device_index;
   int limit, consumed;
@@ -308,7 +308,7 @@ int wmain( int argc, wchar_t* argv[] ) {
 
   ASSERT_CLEANUP( argc < limit, "not enough arguments" );
   ASSERT_CLEANUP( swscanf(argv[2], L"%u%n", &device_index, &consumed) < 1, "wrong DEVICE_INDEX" );
-  ASSERT_CLEANUP( device_index >= ((plainmtp_registry_s*)context)->count, "no such DEVICE_INDEX" );
+  ASSERT_CLEANUP( device_index >= ((plainmtp_context_s*)context)->count, "no such DEVICE_INDEX" );
 
   argv[2] += consumed;
   base_object_id = (*argv[2] == L':') ? (argv[2]+1) : NULL;
@@ -326,7 +326,7 @@ int wmain( int argc, wchar_t* argv[] ) {
 
     if (path_end == NULL) {
       PUT_TEXT( "ERROR: failed to resolve path after `%ls`\n"),
-        WSNN(((plainmtp_image_s*)cursor)->name) );
+        WSNN(((plainmtp_cursor_s*)cursor)->name) );
       goto cleanup;
     }
   } else {

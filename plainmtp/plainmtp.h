@@ -15,6 +15,8 @@
 
 #include "global.i.h"
 
+/**************************************************************************************************/
+
 #define PLAINMTP_VERSION_MAJOR 0
 #define PLAINMTP_VERSION_MINOR 1
 #define PLAINMTP_VERSION_BUILD 0
@@ -53,22 +55,9 @@ typedef void* (*plainmtp_data_f)
   pointer for the next call (in "active" mode) or any pointer that is not NULL (in "passive" mode).
 */
 
-/* Library context. Can be typecast to 'plainmtp_registry_s*' type to access information about
-  available devices connected to the machine. */
-typedef struct zz_plainmtp_context_s plainmtp_context_s;
-
-/* Device handle. */
-typedef struct zz_plainmtp_device_s plainmtp_device_s;
-
-/* Cursor. This is the main primitive to access entities on the device and perform operations on
-  them (enumerate child entities, create new ones, read their binary data etc). Points to the only
-  one specific entity at a time. Can be typecast to 'plainmtp_image_s*' type to access information
-  about it. There's never a cursor in invalid state, so any operation on it is either success or
-  failure. But they're not being updated automatically, so it's possible to obtain a cursor that
-  will point to a non-existent entity (e.g. if it was later deleted by someone). */
-typedef struct zz_plainmtp_cursor_s plainmtp_cursor_s;
-
-typedef struct zz_plainmtp_registry_s {
+/* Library context. Pointer to it can be typecast to 'plainmtp_context_s*' to access information
+  about available devices connected to the machine. */
+PLAINMTP_OPAQUE(struct plainmtp_context_s) {
   size_t count;
 
   /* BEWARE: All the next members AND their fields may be NULL! */
@@ -76,9 +65,18 @@ typedef struct zz_plainmtp_registry_s {
   const wchar_t** names;
   const wchar_t** vendors;
   const wchar_t** strings;
-} const plainmtp_registry_s;
+} const plainmtp_context_s;
 
-typedef struct zz_plainmtp_image_s {
+/* Device handle. The non-struct 'const plainmtp_device_s' typename is reserved for future use. */
+PLAINMTP_OPAQUE(struct plainmtp_device_s) const plainmtp_device_s;
+
+/* Cursor. This is the main primitive to access entities on the device and perform operations on
+  them (enumerate child entities, create new ones, read their binary data etc). Points to the only
+  one specific entity at a time. Pointer to it can be typecast to 'plainmtp_cursor_s*' to access
+  information about it. There's never a cursor in invalid state, so any operation on it is either
+  success or failure. But they're not being updated automatically, so it's possible to obtain a
+  cursor that will point to a non-existent entity (e.g. if it was later deleted by someone). */
+PLAINMTP_OPAQUE(struct plainmtp_cursor_s) {
   /* Entity's unique ID that persists between connection sessions. Guaranteed not to be NULL.
     IMPORTANT: This is NEITHER a Persistent Unique Object Identifier (PUID) from the original MTP
     standard NOR guaranteed to be represented in the same GUID format as in PUID. */
@@ -89,15 +87,16 @@ typedef struct zz_plainmtp_image_s {
 
   /* Date/time in standard portable C format. When not available, datetime.tm_mday is set to 0. */
   struct tm datetime;
-} const plainmtp_image_s;
+} const plainmtp_cursor_s;
 
+/**************************************************************************************************/
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* Initialize the library and obtain the operating context. */
-extern plainmtp_context_s* plainmtp_startup(void);  /*
+extern struct plainmtp_context_s* plainmtp_startup(void);  /*
   Returns a pointer to the allocated context. If initialization has failed, returns NULL.
 */
 
@@ -105,14 +104,14 @@ extern plainmtp_context_s* plainmtp_startup(void);  /*
 extern void plainmtp_shutdown
 (
   /* A pointer to the operating context that was allocated by plainmtp_startup(). */
-  plainmtp_context_s* context
+  struct plainmtp_context_s* context
 );
 
 /* Establish a session with the device. */
-extern plainmtp_device_s* plainmtp_device_start
+extern struct plainmtp_device_s* plainmtp_device_start
 (
   /* A pointer to the operating context. */
-  plainmtp_context_s* context,
+  struct plainmtp_context_s* context,
 
   /* Index of the device in the context registry. */
   size_t device_index,
@@ -127,33 +126,33 @@ extern plainmtp_device_s* plainmtp_device_start
 extern void plainmtp_device_finish
 (
   /* A pointer to the device handle that was obtained through plainmtp_device_start(). */
-  plainmtp_device_s* device
+  struct plainmtp_device_s* device
 );
 
 /* Set cursor to entity specified by another one. */
-extern plainmtp_cursor_s* plainmtp_cursor_assign
+extern struct plainmtp_cursor_s* plainmtp_cursor_assign
 (
   /* Cursor to be changed. If NULL, it creates a copy of 'source'. */
-  plainmtp_cursor_s* cursor,
+  struct plainmtp_cursor_s* cursor,
 
   /* Cursor to be assigned. If NULL, it frees the cursor. */
-  plainmtp_cursor_s* source
+  struct plainmtp_cursor_s* source
 );  /*
   Returns 'cursor' if it was changed; or a pointer to the created cursor.
   If an error has occurred or cursor was freed, returns NULL. A cursor retains its state on error.
 */
 
 /* Set cursor to entity by its persistent unique ID. */
-extern plainmtp_cursor_s* plainmtp_cursor_switch
+extern struct plainmtp_cursor_s* plainmtp_cursor_switch
 (
   /* Cursor to be changed. If NULL, a new one will be created. */
-  plainmtp_cursor_s* cursor,
+  struct plainmtp_cursor_s* cursor,
 
   /* Persistent unique ID of the entity. */
   const wchar_t* entity_id,
 
   /* Handle of the device the entity belongs to. */
-  plainmtp_device_s* device
+  struct plainmtp_device_s* device
 );  /*
   Returns 'cursor' if it was changed; or a pointer to the created cursor.
   If an error has occurred or cursor was freed, returns NULL. A cursor retains its state on error.
@@ -165,10 +164,10 @@ extern plainmtp_cursor_s* plainmtp_cursor_switch
 extern plainmtp_bool plainmtp_cursor_update
 (
   /* Cursor to be updated. */
-  plainmtp_cursor_s* cursor,
+  struct plainmtp_cursor_s* cursor,
 
   /* Handle of the device the entity belongs to. */
-  plainmtp_device_s* device
+  struct plainmtp_device_s* device
 );  /*
   Returns True if information has been updated successfully, False otherwise (e.g. if entity wasn't
   found because it has been deleted).
@@ -178,10 +177,10 @@ extern plainmtp_bool plainmtp_cursor_update
 extern plainmtp_bool plainmtp_cursor_return
 (
   /* Cursor to be switched. */
-  plainmtp_cursor_s* cursor,
+  struct plainmtp_cursor_s* cursor,
 
   /* Handle of the device the entity belongs to. */
-  plainmtp_device_s* device
+  struct plainmtp_device_s* device
 );  /*
   If 'device' is not NULL, returns True if cursor was switched successfully, False otherwise.
   If there's an enumeration in progress, it will be aborted. Switching is guaranteed in this case.
@@ -197,10 +196,10 @@ extern plainmtp_bool plainmtp_cursor_return
 extern plainmtp_bool plainmtp_cursor_select
 (
   /* Cursor that is being enumerated. */
-  plainmtp_cursor_s* cursor,
+  struct plainmtp_cursor_s* cursor,
 
   /* Handle of the device the entity belongs to. */
-  plainmtp_device_s* device
+  struct plainmtp_device_s* device
 );  /*
   If 'device' is not NULL, returns True if cursor was switched successfully to the next child.
   If there's no more child entities to enumerate, or an error has occurred, it switches back to the
@@ -217,10 +216,10 @@ extern plainmtp_bool plainmtp_cursor_select
 extern plainmtp_bool plainmtp_cursor_receive
 (
   /* Cursor that points to the object to be received. */
-  plainmtp_cursor_s* cursor,
+  struct plainmtp_cursor_s* cursor,
 
   /* Handle of the device the object belongs to. */
-  plainmtp_device_s* device,
+  struct plainmtp_device_s* device,
 
   /* Maximum size of the data chunk. If 0, there's no limit. */
   size_t chunk_limit,
@@ -238,10 +237,10 @@ extern plainmtp_bool plainmtp_cursor_receive
 extern plainmtp_bool plainmtp_cursor_transfer
 (
   /* Cursor that points to the entity to be the parent of a new one. */
-  plainmtp_cursor_s* parent,
+  struct plainmtp_cursor_s* parent,
 
   /* Handle of the device the parent entity belongs to. */
-  plainmtp_device_s* device,
+  struct plainmtp_device_s* device,
 
   /* Name for the new object. */
   const wchar_t* name,
@@ -263,7 +262,7 @@ extern plainmtp_bool plainmtp_cursor_transfer
   /* A pointer to the cursor that will be set to the new object. Can refer to the same cursor that
     is passed to the 'parent' parameter. If the underlying value is NULL, the function will make a
     new cursor. Use NULL as argument to avoid getting any cursor whatsoever. */
-  plainmtp_cursor_s** SET_cursor
+  struct plainmtp_cursor_s** SET_cursor
 );  /*
   Returns True if object has been created and data transferred successfully, False otherwise.
   If 'SET_cursor' is not NULL, but it failed to set the cursor after transferring the data, then
@@ -273,5 +272,7 @@ extern plainmtp_bool plainmtp_cursor_transfer
 #ifdef __cplusplus
 }
 #endif
+
+/**************************************************************************************************/
 
 #endif /* ZZ_PLAINMTP_MAIN_H_IG */

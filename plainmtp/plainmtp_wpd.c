@@ -85,15 +85,15 @@ typedef HRESULT (STDMETHODCALLTYPE *device_info_string_f) (
   ...to be continued.
 */
 
-struct zz_plainmtp_context_s {
+struct plainmtp_context_s {
   /* MUST be the first field for typecasting to public type. */
-  struct zz_plainmtp_registry_s device_list;
+  struct zz_plainmtp_context_s device_list;
 
   IPortableDeviceManager* wpd_manager;
   IPortableDeviceKeyCollection* wpd_values_request;
 };
 
-struct zz_plainmtp_device_s {
+struct plainmtp_device_s {
   IPortableDevice* wpd_socket;
   IPortableDeviceContent* wpd_content;
   IPortableDeviceResources* wpd_resources;
@@ -107,12 +107,12 @@ struct zz_plainmtp_device_s {
   which is not ergonomic for plain values (such as WPD_OBJECT_SIZE), so it's better to store them
   separately (for example, in a struct, containing 'uint64_t size' and IPortableDeviceValues). To
   do this, make_values_request() should be split into requests for regular and temporary values. */
-struct zz_plainmtp_cursor_s {
+struct plainmtp_cursor_s {
   /* MUST be the first field for typecasting to public type. */
-  struct zz_plainmtp_image_s current_object;
+  struct zz_plainmtp_cursor_s current_object;
 
   /* Contains undefined values if parent_values == NULL. */
-  struct zz_plainmtp_image_s parent_object;
+  struct zz_plainmtp_cursor_s parent_object;
 
   IPortableDeviceValues* current_values;
   IPortableDeviceValues* parent_values;  /* If not NULL, there's an enumeration in progress. */
@@ -275,11 +275,11 @@ failed:
   return NULL;
 }}
 
-static plainmtp_context_s* make_library_context(void) {
+static struct plainmtp_context_s* make_library_context(void) {
   HRESULT hr;
   IPortableDeviceManager* wpd_manager;
   IPortableDeviceKeyCollection* wpd_values_request;
-  plainmtp_context_s* context = NULL;
+  struct plainmtp_context_s* context = NULL;
   DWORD wpd_device_count = 0, i;
   LPCWSTR *wpd_device_ids, *wpd_device_names, *wpd_device_vendors, *wpd_device_strings;
 {
@@ -399,9 +399,9 @@ static IPortableDevice* make_connection_socket( LPCWSTR device_id, plainmtp_bool
   - CLSID_PortableDevice instead of CLSID_PortableDeviceFTM
 */
 
-plainmtp_context_s* plainmtp_startup(void) {
+struct plainmtp_context_s* plainmtp_startup(void) {
   HRESULT hr;
-  plainmtp_context_s* result;
+  struct plainmtp_context_s* result;
 {
   hr = CoInitialize( NULL );
   if (SUCCEEDED(hr)) {
@@ -413,7 +413,7 @@ plainmtp_context_s* plainmtp_startup(void) {
   return NULL;
 }}
 
-void plainmtp_shutdown( plainmtp_context_s* context ) {
+void plainmtp_shutdown( struct plainmtp_context_s* context ) {
   size_t i;
 {
   assert( context != NULL );
@@ -437,11 +437,11 @@ void plainmtp_shutdown( plainmtp_context_s* context ) {
   CoUninitialize();
 }}
 
-plainmtp_device_s* plainmtp_device_start( plainmtp_context_s* context, size_t device_index,
-  plainmtp_bool read_only
+struct plainmtp_device_s* plainmtp_device_start( struct plainmtp_context_s* context,
+  size_t device_index, plainmtp_bool read_only
 ) {
   HRESULT hr;
-  plainmtp_device_s* device = NULL;  /* STAGER requires all variables to be initialized. */
+  struct plainmtp_device_s* device = NULL;  /* STAGER requires all variables to be initialized. */
   int i;
 {
   assert( context != NULL );
@@ -496,7 +496,7 @@ plainmtp_device_s* plainmtp_device_start( plainmtp_context_s* context, size_t de
   return NULL;
 }}
 
-void plainmtp_device_finish( plainmtp_device_s* device ) {
+void plainmtp_device_finish( struct plainmtp_device_s* device ) {
 {
   assert( device != NULL );
 
@@ -514,7 +514,7 @@ void plainmtp_device_finish( plainmtp_device_s* device ) {
 
 /**************************************************************************************************/
 
-static void wipe_object_image( struct zz_plainmtp_image_s* object ) {
+static void wipe_object_image( struct zz_plainmtp_cursor_s* object ) {
 {
   CoTaskMemFree( (void*)object->id );
   CoTaskMemFree( (void*)object->name );
@@ -522,7 +522,7 @@ static void wipe_object_image( struct zz_plainmtp_image_s* object ) {
 
 /* TODO: Consider trying more properties for name. Devices connected using Mass Storage Class
   protocol may not report WPD_OBJECT_NAME for the root (DEVICE) object - e.g. Sony DSC-H50. */
-static plainmtp_bool obtain_object_image( struct zz_plainmtp_image_s* object,
+static plainmtp_bool obtain_object_image( struct zz_plainmtp_cursor_s* object,
   IPortableDeviceValues* values
 ) {
   HRESULT hr;
@@ -572,7 +572,7 @@ quit:
   return PLAINMTP_TRUE;
 }}
 
-static void clear_cursor( plainmtp_cursor_s* cursor ) {
+static void clear_cursor( struct plainmtp_cursor_s* cursor ) {
 {
   wipe_object_image( &cursor->current_object );
   RELEASE_INSTANCE( cursor->current_values );
@@ -586,10 +586,10 @@ static void clear_cursor( plainmtp_cursor_s* cursor ) {
 }}
 
 /* NB: This enforces atomic one-time change to preserve cursor initial state in case of error. */
-static plainmtp_cursor_s* setup_cursor_by_values( plainmtp_cursor_s* cursor,
+static struct plainmtp_cursor_s* setup_cursor_by_values( struct plainmtp_cursor_s* cursor,
   IPortableDeviceValues* values
 ) {
-  struct zz_plainmtp_image_s object;
+  struct zz_plainmtp_cursor_s object;
 {
   if ( !obtain_object_image( &object, values ) ) { return NULL; }
 
@@ -611,8 +611,8 @@ static plainmtp_cursor_s* setup_cursor_by_values( plainmtp_cursor_s* cursor,
   return cursor;
 }}
 
-static plainmtp_cursor_s* setup_cursor_by_handle( plainmtp_cursor_s* cursor,
-  plainmtp_device_s* device, LPCWSTR handle
+static struct plainmtp_cursor_s* setup_cursor_by_handle( struct plainmtp_cursor_s* cursor,
+  struct plainmtp_device_s* device, LPCWSTR handle
 ) {
   HRESULT hr;
   IPortableDeviceValues* values;
@@ -626,7 +626,8 @@ static plainmtp_cursor_s* setup_cursor_by_handle( plainmtp_cursor_s* cursor,
   return cursor;
 }}
 
-plainmtp_cursor_s* plainmtp_cursor_assign( plainmtp_cursor_s* cursor, plainmtp_cursor_s* source ) {
+struct plainmtp_cursor_s* plainmtp_cursor_assign( struct plainmtp_cursor_s* cursor,
+  struct plainmtp_cursor_s* source ) {
 {
   if (cursor != source) {
     if (source == NULL) {
@@ -642,8 +643,8 @@ plainmtp_cursor_s* plainmtp_cursor_assign( plainmtp_cursor_s* cursor, plainmtp_c
   return cursor;
 }}
 
-plainmtp_cursor_s* plainmtp_cursor_switch( plainmtp_cursor_s* cursor, const wchar_t* entity_id,
-  plainmtp_device_s* device
+struct plainmtp_cursor_s* plainmtp_cursor_switch( struct plainmtp_cursor_s* cursor,
+  const wchar_t* entity_id, struct plainmtp_device_s* device
 ) {
   LPWSTR handle;
 {
@@ -664,7 +665,9 @@ plainmtp_cursor_s* plainmtp_cursor_switch( plainmtp_cursor_s* cursor, const wcha
   return cursor;
 }}
 
-plainmtp_bool plainmtp_cursor_update( plainmtp_cursor_s* cursor, plainmtp_device_s* device ) {
+plainmtp_bool plainmtp_cursor_update( struct plainmtp_cursor_s* cursor,
+  struct plainmtp_device_s* device
+) {
   HRESULT hr;
   LPWSTR handle;
 {
@@ -680,7 +683,9 @@ plainmtp_bool plainmtp_cursor_update( plainmtp_cursor_s* cursor, plainmtp_device
   return (cursor != NULL);
 }}
 
-plainmtp_bool plainmtp_cursor_return( plainmtp_cursor_s* cursor, plainmtp_device_s* device ) {
+plainmtp_bool plainmtp_cursor_return( struct plainmtp_cursor_s* cursor,
+  struct plainmtp_device_s* device
+) {
   HRESULT hr;
   LPWSTR handle;
   plainmtp_bool is_shadowed, is_root;
@@ -719,7 +724,9 @@ plainmtp_bool plainmtp_cursor_return( plainmtp_cursor_s* cursor, plainmtp_device
   return (cursor != NULL) || is_root;
 }}
 
-plainmtp_bool plainmtp_cursor_select( plainmtp_cursor_s* cursor, plainmtp_device_s* device ) {
+plainmtp_bool plainmtp_cursor_select( struct plainmtp_cursor_s* cursor,
+  struct plainmtp_device_s* device
+) {
   HRESULT hr;
   IPortableDeviceValues* values;
   LPWSTR handle;
@@ -788,8 +795,9 @@ plainmtp_bool plainmtp_cursor_select( plainmtp_cursor_s* cursor, plainmtp_device
 
 /**************************************************************************************************/
 
-static IStream* make_transfer_stream( plainmtp_cursor_s* cursor, plainmtp_device_s* device,
-  const wchar_t* name, uint64_t size, DWORD* OUT_optimal_chunk_size
+static IStream* make_transfer_stream( struct plainmtp_cursor_s* cursor,
+  struct plainmtp_device_s* device, const wchar_t* name, uint64_t size,
+  DWORD* OUT_optimal_chunk_size
 ) {
   HRESULT hr;
   IPortableDeviceValues* transfer_request;
@@ -836,8 +844,9 @@ static size_t stream_write( IStream* stream, const char* data, size_t size ) {
   return result;
 }}
 
-plainmtp_bool plainmtp_cursor_receive( plainmtp_cursor_s* cursor, plainmtp_device_s* device,
-  size_t chunk_limit, plainmtp_data_f callback, void* custom_state
+plainmtp_bool plainmtp_cursor_receive( struct plainmtp_cursor_s* cursor,
+  struct plainmtp_device_s* device, size_t chunk_limit, plainmtp_data_f callback,
+  void* custom_state
 ) {
   HRESULT hr;
   IStream* stream;
@@ -891,9 +900,9 @@ plainmtp_bool plainmtp_cursor_receive( plainmtp_cursor_s* cursor, plainmtp_devic
   return SUCCEEDED(hr);
 }}
 
-plainmtp_bool plainmtp_cursor_transfer( plainmtp_cursor_s* parent, plainmtp_device_s* device,
-  const wchar_t* name, uint64_t size, size_t chunk_limit, plainmtp_data_f callback,
-  void* custom_state, plainmtp_cursor_s** SET_cursor
+plainmtp_bool plainmtp_cursor_transfer( struct plainmtp_cursor_s* parent,
+  struct plainmtp_device_s* device, const wchar_t* name, uint64_t size, size_t chunk_limit,
+  plainmtp_data_f callback, void* custom_state, struct plainmtp_cursor_s** SET_cursor
 ) {
   plainmtp_bool result = PLAINMTP_FALSE;
   HRESULT hr;
