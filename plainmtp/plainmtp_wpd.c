@@ -87,7 +87,7 @@ typedef HRESULT (STDMETHODCALLTYPE *device_info_string_f) (
 
 struct plainmtp_context_s {
   /* MUST be the first field for typecasting to public type. */
-  struct zz_plainmtp_context_s device_list;
+  zz_plainmtp_context_s device_list;
 
   IPortableDeviceManager* wpd_manager;
   IPortableDeviceKeyCollection* wpd_values_request;
@@ -109,10 +109,10 @@ struct plainmtp_device_s {
   do this, make_values_request() should be split into requests for regular and temporary values. */
 struct plainmtp_cursor_s {
   /* MUST be the first field for typecasting to public type. */
-  struct zz_plainmtp_cursor_s current_object;
+  zz_plainmtp_cursor_s current_object;
 
   /* Contains undefined values if parent_values == NULL. */
-  struct zz_plainmtp_cursor_s parent_object;
+  zz_plainmtp_cursor_s parent_object;
 
   IPortableDeviceValues* current_values;
   IPortableDeviceValues* parent_values;  /* If not NULL, there's an enumeration in progress. */
@@ -514,7 +514,7 @@ void plainmtp_device_finish( struct plainmtp_device_s* device ) {
 
 /**************************************************************************************************/
 
-static void wipe_object_image( struct zz_plainmtp_cursor_s* object ) {
+static void wipe_object_image( zz_plainmtp_cursor_s* object ) {
 {
   CoTaskMemFree( (void*)object->id );
   CoTaskMemFree( (void*)object->name );
@@ -522,7 +522,7 @@ static void wipe_object_image( struct zz_plainmtp_cursor_s* object ) {
 
 /* TODO: Consider trying more properties for name. Devices connected using Mass Storage Class
   protocol may not report WPD_OBJECT_NAME for the root (DEVICE) object - e.g. Sony DSC-H50. */
-static plainmtp_bool obtain_object_image( struct zz_plainmtp_cursor_s* object,
+static plainmtp_bool obtain_object_image( zz_plainmtp_cursor_s* object,
   IPortableDeviceValues* values
 ) {
   HRESULT hr;
@@ -589,7 +589,7 @@ static void clear_cursor( struct plainmtp_cursor_s* cursor ) {
 static struct plainmtp_cursor_s* setup_cursor_by_values( struct plainmtp_cursor_s* cursor,
   IPortableDeviceValues* values
 ) {
-  struct zz_plainmtp_cursor_s object;
+  zz_plainmtp_cursor_s object;
 {
   if ( !obtain_object_image( &object, values ) ) { return NULL; }
 

@@ -14,7 +14,9 @@ typedef enum zz_plainmtp_bool {
   ZZ_PLAINMTP_TOKEN_## Action ( Symbol_A, Symbol_B )
 
 #define ZZ_PLAINMTP_TAG_NAME__struct
-#define ZZ_PLAINMTP_OPAQUE( Name ) struct Name; typedef struct zz_## Name
+#define ZZ_PLAINMTP_OPAQUE( Name ) struct Name; \
+  typedef struct zz_## Name zz_## Name; \
+  typedef struct zz_## Name
 
 /**************************************************************************************************/
 
