@@ -10,3 +10,7 @@ wchar_t* zz_plainmtp_wcsdup( const wchar_t* string ) {
   return wmemcpy( result, string, length );
 }
 #endif
+
+#ifdef PLAINMTP_FALLBACKS_C_EX
+#include PLAINMTP_FALLBACKS_C_EX
+#endif

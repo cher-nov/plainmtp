@@ -172,3 +172,7 @@ void get_wpd_fallback_object_id( wpd_guid_plain_i result, const wchar_t* name, u
   result[14] = (uint8_t) units[7];
   result[15] = (uint8_t)(units[7] >> 8);
 }}
+
+#ifdef PLAINMTP_WPD_PUID_C_EX
+#include PLAINMTP_WPD_PUID_C_EX
+#endif

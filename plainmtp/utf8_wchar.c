@@ -88,3 +88,7 @@ char* make_multibyte_string( const wchar_t* source ) {
   free( result );
   return NULL;
 }}
+
+#ifdef PLAINMTP_UTF8_WCHAR_C_EX
+#include PLAINMTP_UTF8_WCHAR_C_EX
+#endif

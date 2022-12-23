@@ -1005,3 +1005,7 @@ plainmtp_bool plainmtp_cursor_transfer( plainmtp_cursor_s* parent, plainmtp_devi
   free( metadata.filename );
   return result;
 }}
+
+#ifdef PLAINMTP_MAIN_C_EX
+#include PLAINMTP_MAIN_C_EX
+#endif

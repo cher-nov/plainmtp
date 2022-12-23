@@ -962,3 +962,7 @@ cleanup:
   RELEASE_INSTANCE( stream );
   return result;
 }}
+
+#ifdef PLAINMTP_MAIN_C_EX
+#include PLAINMTP_MAIN_C_EX
+#endif
