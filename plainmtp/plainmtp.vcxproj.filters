@@ -26,5 +26,8 @@
     <ClInclude Include="global.i.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="common.i.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -132,6 +132,7 @@
     <ClCompile Include="plainmtp_wpd.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="common.i.h" />
     <ClInclude Include="global.i.h" />
     <ClInclude Include="plainmtp.h" />
   </ItemGroup>

@@ -4,12 +4,11 @@
 
 #ifndef ZZ_PLAINMTP_WPD_PUID_H_IG
 #define ZZ_PLAINMTP_WPD_PUID_H_IG
+#include "common.i.h"
 
 #include <wchar.h>
 
 #include "../3rdparty/pstdint.h"
-
-#include "global.i.h"
 
 #define WPD_GUID_STRING_SIZE sizeof("{01234567-0123-0123-0123-0123456789AB}")
 

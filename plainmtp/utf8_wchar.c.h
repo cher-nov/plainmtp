@@ -1,5 +1,6 @@
 #ifndef ZZ_PLAINMTP_UTF8_WCHAR_H_IG
 #define ZZ_PLAINMTP_UTF8_WCHAR_H_IG
+#include "common.i.h"
 
 #include <wchar.h>
 

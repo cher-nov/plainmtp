@@ -53,10 +53,7 @@
 		<Linker>
 			<Add library="mtp" />
 		</Linker>
-		<Unit filename="common.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="common.c.h">
+		<Unit filename="common.i.h">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="fallbacks.c">
@@ -66,6 +63,12 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="global.i.h">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="object_queue.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="object_queue.c.h">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="plainmtp.h">

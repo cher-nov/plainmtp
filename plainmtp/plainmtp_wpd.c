@@ -1,4 +1,5 @@
 #include "plainmtp.h"
+#include "common.i.h"
 
 #include <assert.h>
 

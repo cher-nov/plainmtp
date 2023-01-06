@@ -1,4 +1,5 @@
 #include "plainmtp.h"
+#include "common.i.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -6,10 +7,10 @@
 
 #include <libmtp.h>
 
+#include "object_queue.c.h"
 #include "utf8_wchar.c.h"
 #include "wpd_puid.c.h"
 #include "fallbacks.c.h"
-#include "common.c.h"
 
 /* NB: The code marked with the "SHARED MEMORY MOMENT" comment depends on the implicit assumption
   that our library and libmtp will share the same memory allocator and heap across a module
