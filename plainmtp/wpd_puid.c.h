@@ -9,7 +9,7 @@
 
 #include "../3rdparty/pstdint.h"
 
-#include "global.h"
+#include "global.i.h"
 
 #define WPD_GUID_STRING_SIZE sizeof("{01234567-0123-0123-0123-0123456789AB}")
 

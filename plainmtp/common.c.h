@@ -3,7 +3,7 @@
 
 #include "../3rdparty/pstdint.h"
 
-#include "global.h"
+#include "global.i.h"
 
 typedef enum {
   PLAINMTP_GOOD = PLAINMTP_FALSE,

@@ -1,4 +1,4 @@
-#include "wpd_puid.h"
+#include "wpd_puid.c.h"
 
 #include <stdlib.h>
 

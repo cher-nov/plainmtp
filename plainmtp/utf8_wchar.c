@@ -1,4 +1,4 @@
-#include "utf8_wchar.h"
+#include "utf8_wchar.c.h"
 
 #include <stdlib.h>
 

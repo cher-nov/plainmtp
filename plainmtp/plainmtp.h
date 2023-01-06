@@ -13,7 +13,7 @@
   Official website for this library: http://www.azillionmonkeys.com/qed/ninja.html */
 #include "../3rdparty/pstdint.h"
 
-#include "global.h"
+#include "global.i.h"
 
 #define PLAINMTP_VERSION_MAJOR 0
 #define PLAINMTP_VERSION_MINOR 1

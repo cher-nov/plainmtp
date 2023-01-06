@@ -1,4 +1,4 @@
-#include "wcsdup.h"
+#include "wcsdup.c.h"
 
 #include <stdlib.h>
 

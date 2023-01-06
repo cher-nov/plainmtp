@@ -132,7 +132,7 @@
     <ClCompile Include="plainmtp_wpd.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="global.h" />
+    <ClInclude Include="global.i.h" />
     <ClInclude Include="plainmtp.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

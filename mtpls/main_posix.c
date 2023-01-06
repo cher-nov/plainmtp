@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 #include "../3rdparty/pstdint.h"
-#include "../plainmtp/utf8_wchar.h"
+#include "../plainmtp/utf8_wchar.c.h"
 
 extern int wmain( int argc, wchar_t* argv[] );
 

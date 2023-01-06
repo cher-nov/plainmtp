@@ -23,7 +23,7 @@
     <ClInclude Include="plainmtp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="global.h">
+    <ClInclude Include="global.i.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

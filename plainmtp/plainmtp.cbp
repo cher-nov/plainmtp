@@ -55,10 +55,10 @@
 		<Unit filename="common.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="common.h">
+		<Unit filename="common.c.h">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="global.h">
+		<Unit filename="global.i.h">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="plainmtp.h">
@@ -70,19 +70,19 @@
 		<Unit filename="utf8_wchar.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="utf8_wchar.h">
+		<Unit filename="utf8_wchar.c.h">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="wcsdup.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="wcsdup.h">
+		<Unit filename="wcsdup.c.h">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="wpd_puid.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="wpd_puid.h">
+		<Unit filename="wpd_puid.c.h">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Extensions />
