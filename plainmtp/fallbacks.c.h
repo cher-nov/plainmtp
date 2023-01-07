@@ -1,5 +1,5 @@
-#ifndef ZZ_PLAINMTP_FALLBACKS_H_IG
-#define ZZ_PLAINMTP_FALLBACKS_H_IG
+#ifndef ZZ_PLAINMTP_FALLBACKS_C_IG
+#define ZZ_PLAINMTP_FALLBACKS_C_IG
 #include "common.i.h"
 
 #include <wchar.h>
@@ -13,4 +13,6 @@
   #define zz_plainmtp_wcsdup wcsdup
 #endif
 
-#endif /* ZZ_PLAINMTP_FALLBACKS_H_IG */
+#else
+#error ZZ_PLAINMTP_FALLBACKS_C_IG
+#endif

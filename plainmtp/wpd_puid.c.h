@@ -2,8 +2,8 @@
   Microsoft tools "WPD Information Tool" (WpdInfo.exe) and "MTP Device Simulator" from WPD SDK.
   No disassembly or any other copyright-infringing approach were involved. */
 
-#ifndef ZZ_PLAINMTP_WPD_PUID_H_IG
-#define ZZ_PLAINMTP_WPD_PUID_H_IG
+#ifndef ZZ_PLAINMTP_WPD_PUID_C_IG
+#define ZZ_PLAINMTP_WPD_PUID_C_IG
 #include "common.i.h"
 
 #include <wchar.h>
@@ -28,4 +28,6 @@ extern void write_wpd_plain_guid( const wpd_guid_plain_i source, wchar_t* result
 extern void get_wpd_fallback_object_id( wpd_guid_plain_i result, const wchar_t* name,
   uint32_t handle, uint32_t parent, uint32_t storage, uint32_t size );
 
-#endif /* ZZ_PLAINMTP_WPD_PUID_H_IG */
+#else
+#error ZZ_PLAINMTP_WPD_PUID_C_IG
+#endif
