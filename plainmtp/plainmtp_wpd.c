@@ -85,13 +85,10 @@ typedef HRESULT (STDMETHODCALLTYPE *device_info_string_f) (
   ...to be continued.
 */
 
-struct plainmtp_context_s {
-  /* MUST be the first field for typecasting to public type. */
-  zz_plainmtp_context_s device_list;
-
+PLAINMTP_SUBCLASS( struct plainmtp_context_s, device_list ) (
   IPortableDeviceManager* wpd_manager;
   IPortableDeviceKeyCollection* wpd_values_request;
-};
+);
 
 struct plainmtp_device_s {
   IPortableDevice* wpd_socket;
@@ -107,10 +104,7 @@ struct plainmtp_device_s {
   which is not ergonomic for plain values (such as WPD_OBJECT_SIZE), so it's better to store them
   separately (for example, in a struct, containing 'uint64_t size' and IPortableDeviceValues). To
   do this, make_values_request() should be split into requests for regular and temporary values. */
-struct plainmtp_cursor_s {
-  /* MUST be the first field for typecasting to public type. */
-  zz_plainmtp_cursor_s current_object;
-
+PLAINMTP_SUBCLASS( struct plainmtp_cursor_s, current_object ) (
   /* Contains undefined values if parent_values == NULL. */
   zz_plainmtp_cursor_s parent_object;
 
@@ -119,7 +113,7 @@ struct plainmtp_cursor_s {
 
   /* If NULL, the current object was never enumerated, or enumeration has ended with an error. */
   IEnumPortableDeviceObjectIDs* enumerator;
-};
+);
 
 /*
   The semantics of COM utilization is very C++ oriented by nature. And the most noticeable problem

@@ -61,22 +61,16 @@ typedef struct zz_storage_enumeration_s {
   struct zz_storage_enumeration_s* next;
 } storage_enumeration_s;
 
-struct plainmtp_context_s {
-  /* MUST be the first field for typecasting to public type. */
-  zz_plainmtp_context_s device_list;
-
+PLAINMTP_SUBCLASS( struct plainmtp_context_s, device_list ) (
   LIBMTP_raw_device_t* hardware_list;
-};
+);
 
 struct plainmtp_device_s {
   LIBMTP_mtpdevice_t* libmtp_socket;
   plainmtp_bool read_only;
 };
 
-struct plainmtp_cursor_s {
-  /* MUST be the first field for typecasting to public type. */
-  zz_plainmtp_cursor_s current_entity;
-
+PLAINMTP_SUBCLASS( struct plainmtp_cursor_s, current_entity ) (
   /* Contains undefined values if no enumeration in progress. */
   zz_plainmtp_cursor_s parent_entity;
 
@@ -98,7 +92,7 @@ struct plainmtp_cursor_s {
   */
 
   void* enumeration;
-};
+);
 
 static void set_object_values( entity_location_s* descriptor, const LIBMTP_file_t* object ) {
 {

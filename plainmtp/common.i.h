@@ -11,10 +11,21 @@ typedef enum {
 
 /**************************************************************************************************/
 
+#define ZZ_PLAINMTP_SUBCLASS_END( Elements ) Elements }
+#define ZZ_PLAINMTP_SUBCLASS( Name, Super_Field ) \
+  struct Name { struct zz_## Name Super_Field; \
+  ZZ_PLAINMTP_SUBCLASS_END
+
+/**************************************************************************************************/
+
 #ifndef __cplusplus
   #define PLAINMTP_EXTERN extern
 #else
   #define PLAINMTP_EXTERN extern "C"
 #endif
+
+#define PLAINMTP_SUBCLASS( Specifier, Super_Field ) ZZ_PLAINMTP_MACRO_EXPAND( JOIN, \
+  ZZ_PLAINMTP_SUBCLASS, ( ZZ_PLAINMTP_TAG_NAME__## Specifier, Super_Field ) \
+)
 
 #endif /* ZZ_PLAINMTP_COMMON_H_IG */
