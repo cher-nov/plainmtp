@@ -1,30 +1,14 @@
-#include "wpd_puid.c.h"
+#include "wpd_puid.h.c"
 
 #include <stdlib.h>
-
-/* NB: Before C99, adjacent string literals had to be of the same type to be concatenated.
-  https://stackoverflow.com/questions/6603275/how-to-convert-defined-string-literal-to-a-wide-string-literal
-  https://stackoverflow.com/questions/21788652/how-do-i-concatenate-wide-string-literals-with-prid32-priu64-etc */
-#define ZZ_WPRINTF_MODIFIER_JOIN( Prefix, Literal ) Prefix ## Literal
-#define ZZ_WPRINTF_MODIFIER_EXPAND( Literal ) ZZ_WPRINTF_MODIFIER_JOIN( L, Literal )
-#define WPRINTF_INT32_MODIFIER ZZ_WPRINTF_MODIFIER_EXPAND( PRINTF_INT32_MODIFIER )
-#define WPRINTF_INT64_MODIFIER ZZ_WPRINTF_MODIFIER_EXPAND( PRINTF_INT64_MODIFIER )
-
-/* Additional unique identifiers in WPD have the format '?ID-{item_0,item_1,,item_N}', where the
-  first character specifies the entity type and the item list specifies some of its properties. */
-#define WPD_STORAGE_ID_FORMAT_PREFIX L"SID-{%"WPRINTF_INT32_MODIFIER L"X,"
 
 #define wpd_root_persistent_id PLAINMTP(wpd_root_persistent_id)
 const wchar_t wpd_root_persistent_id[] = L"DEVICE";
 
 /* NB: We assume 'unsigned int' here because pstdint.h doesn't provide PRINTF_INT8_MODIFIER. */
-static const wchar_t wpd_guid_format_string[] =
+#define wpd_guid_format_string ZZ_PLAINMTP(wpd_guid_format_string)
+PLAINMTP_INTERNAL const wchar_t wpd_guid_format_string[] =
   L"{%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X}";
-
-#define WPD_GUID_FORMAT_LIST \
-  X(0),X(1),X(2),X(3),  X(4),X(5),  X(6),X(7),  X(8),X(9),  X(10),X(11),X(12),X(13),X(14),X(15)
-
-#define WPD_GUID_FORMAT_COUNT 16
 
 #define make_wpd_storage_unique_id PLAINMTP(make_wpd_storage_unique_id)
 wchar_t* make_wpd_storage_unique_id( uint32_t storage_id, uint64_t capacity,

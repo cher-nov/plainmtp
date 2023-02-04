@@ -1,21 +1,11 @@
-#include "plainmtp.h"
-#include "common.i.h"
+#include "plainmtp_wpd.h.c"
 
 #include <assert.h>
 
-/* https://docs.microsoft.com/en-us/windows/win32/winprog/using-the-windows-headers */
-/* https://docs.microsoft.com/en-us/cpp/porting/modifying-winver-and-win32-winnt */
-#define NTDDI_VERSION 0x06010000  /* NTDDI_WIN7 */
-#define WINVER 0x0601  /* _WIN32_WINNT_WIN7 */
-#define _WIN32_WINNT WINVER
-#define WIN32_LEAN_AND_MEAN
-#define CONST_VTABLE
-#include <Windows.h>
 #include <ObjBase.h>
 #include <PropIdl.h>
 #include <PropVarUtil.h>
 #include <PortableDeviceTypes.h>
-#include <PortableDeviceApi.h>
 #include <PortableDevice.h>
 
 #if defined(_MSC_VER) && !defined(PLAINMTP_NO_PRAGMA_LINKAGE)
@@ -32,25 +22,28 @@
   https://stackoverflow.com/questions/34290054/why-am-i-not-getting-the-wpd-object-original-file-namei-e-the-filename-of-the
 */
 
-#define FILE_SHARE_EXCLUSIVE (0)
+/*
+  The semantics of COM utilization is very C++ oriented by nature. And the most noticeable problem
+  here is the object lifetime management. Most COM wrappers for C++ (MFC, ATL/WTL etc.) use RAII to
+  achieve this, which is quite valid, but we don't have such a marvellous thing in Pure C.
 
-#define INVOKE( interface, method ) \
-  (interface)->lpVtbl method ( (interface)
+  It's worth noting that our API implies the use of contexts. So we apply the following scheme:
 
-#define INVOKE_0( interface, method ) \
-  ( (interface)->lpVtbl method ( interface ) )
+  - Persistent objects (i.e. that describe the context) are initialized with 3-phase GOTO cleanup
+    on errors. If you need more phases, you maybe need an additional function. In some cases, the
+    STAGER (stager.h) macros could be used instead (see plainmtp_device_start() for an example).
 
-#define INVOKE_1( interface, method, argument ) \
-  ( (interface)->lpVtbl method ( interface, argument ) )
+  - Temporary objects (that is, those required only for initialization) are handled in separate
+    functions with more structured cleanup of them before return, both on success and failure.
 
-#define RELEASE_INSTANCE( interface ) \
-  ( (void)( (interface)->lpVtbl->Release( interface ) ) )
+  - Keep in mind the presence of a NULL check in CoTaskMemFree() and apply it where possible to
+    use RELEASE_INSTANCE() instead of RELEASE_INSTANCE_SAFE(), with no variable initialization.
 
-#define RELEASE_INSTANCE_SAFE( interface ) \
-  if ((interface) != NULL) RELEASE_INSTANCE( interface )
-
-typedef HRESULT (STDMETHODCALLTYPE *device_info_string_f) (
-  IPortableDeviceManager*, LPCWSTR, WCHAR*, DWORD* );
+  - Use the facts that on acquiring the first resource, cleanup is not needed in case of error, and
+    that the last resource acquired before return doesn't need release code in the cleanup block.
+    Also remember that usage of contiguous memory blocks is not only more efficient than separate
+    allocations but also requires only one check and cleanup operation.
+*/
 
 /*
   Very important notes about handling WPD_OBJECT_PERSISTENT_UNIQUE_ID:
@@ -85,60 +78,8 @@ typedef HRESULT (STDMETHODCALLTYPE *device_info_string_f) (
   ...to be continued.
 */
 
-PLAINMTP_SUBCLASS( struct plainmtp_context_s, device_list ) (
-  IPortableDeviceManager* wpd_manager;
-  IPortableDeviceKeyCollection* wpd_values_request;
-);
-
-struct plainmtp_device_s {
-  IPortableDevice* wpd_socket;
-  IPortableDeviceContent* wpd_content;
-  IPortableDeviceResources* wpd_resources;
-  IPortableDeviceProperties* wpd_properties;
-  IPortableDeviceKeyCollection* values_request;
-};
-
-/* TODO: IPortableDeviceValues is used to achieve cost-free reference counting semantics (which is
-  useful e.g. for cursor duplication) and length-aware strings that can be obtained without calling
-  wcslen() to calculate the buffer size. However, it requires HRESULT error check for every access,
-  which is not ergonomic for plain values (such as WPD_OBJECT_SIZE), so it's better to store them
-  separately (for example, in a struct, containing 'uint64_t size' and IPortableDeviceValues). To
-  do this, make_values_request() should be split into requests for regular and temporary values. */
-PLAINMTP_SUBCLASS( struct plainmtp_cursor_s, current_object ) (
-  /* Contains undefined values if parent_values == NULL. */
-  zz_plainmtp_cursor_s parent_object;
-
-  IPortableDeviceValues* current_values;
-  IPortableDeviceValues* parent_values;  /* If not NULL, there's an enumeration in progress. */
-
-  /* If NULL, the current object was never enumerated, or enumeration has ended with an error. */
-  IEnumPortableDeviceObjectIDs* enumerator;
-);
-
-/*
-  The semantics of COM utilization is very C++ oriented by nature. And the most noticeable problem
-  here is the object lifetime management. Most COM wrappers for C++ (MFC, ATL/WTL etc.) use RAII to
-  achieve this, which is quite valid, but we don't have such a marvellous thing in Pure C.
-
-  It's worth noting that our API implies the use of contexts. So we apply the following scheme:
-
-  - Persistent objects (i.e. that describe the context) are initialized with 3-phase GOTO cleanup
-    on errors. If you need more phases, you maybe need an additional function. In some cases, the
-    STAGER (stager.h) macros could be used instead (see plainmtp_device_start() for an example).
-
-  - Temporary objects (that is, those required only for initialization) are handled in separate
-    functions with more structured cleanup of them before return, both on success and failure.
-
-  - Keep in mind the presence of a NULL check in CoTaskMemFree() and apply it where possible to
-    use RELEASE_INSTANCE() instead of RELEASE_INSTANCE_SAFE(), with no variable initialization.
-
-  - Use the facts that on acquiring the first resource, cleanup is not needed in case of error, and
-    that the last resource acquired before return doesn't need release code in the cleanup block.
-    Also remember that usage of contiguous memory blocks is not only more efficient than separate
-    allocations but also requires only one check and cleanup operation.
-*/
-
-static LPWSTR make_device_info( IPortableDeviceManager* wpd_manager, LPCWSTR device_id,
+#define make_device_info ZZ_PLAINMTP(make_device_info)
+PLAINMTP_INTERNAL LPWSTR make_device_info( IPortableDeviceManager* wpd_manager, LPCWSTR device_id,
   device_info_string_f method
 ) {
   WCHAR* result;
@@ -163,8 +104,9 @@ static LPWSTR make_device_info( IPortableDeviceManager* wpd_manager, LPCWSTR dev
   pass a LPCWSTR buffer to the ->GetDevices() method that expects a LPWSTR one.
   https://stackoverflow.com/questions/74370703/modify-pointer-to-const-variable-const-int-through-a-pointer-to-pointer-to
   Seems like an arbitrary (i.e. unnecessarily restrictive) constraint of C95 at least. */
-static DWORD obtain_wpd_device_ids( IPortableDeviceManager* wpd_manager, LPCWSTR* buffer,
-  DWORD max_count _In_range_(1, max_count) /* suppress C6385 (shut up, MSVC) */
+#define obtain_wpd_device_ids ZZ_PLAINMTP(obtain_wpd_device_ids)
+PLAINMTP_INTERNAL DWORD obtain_wpd_device_ids( IPortableDeviceManager* wpd_manager,
+  LPCWSTR* buffer, DWORD max_count _In_range_(1, max_count) /* suppress C6385 (shut up, MSVC) */
 ) {
   HRESULT hr;
   LPWSTR* wpd_device_ids;
@@ -185,7 +127,8 @@ static DWORD obtain_wpd_device_ids( IPortableDeviceManager* wpd_manager, LPCWSTR
 }}
 
 /* NB: This will successfully return an empty string in case of invalid PUID specified. */
-static LPWSTR make_object_handle_from_puid( IPortableDeviceContent* wpd_content,
+#define make_object_handle_from_puid ZZ_PLAINMTP(make_object_handle_from_puid)
+PLAINMTP_INTERNAL LPWSTR make_object_handle_from_puid( IPortableDeviceContent* wpd_content,
   LPCWSTR object_puid
 ) {
   LPWSTR result;
@@ -232,7 +175,8 @@ static LPWSTR make_object_handle_from_puid( IPortableDeviceContent* wpd_content,
   return result;
 }}
 
-static IPortableDeviceKeyCollection* make_values_request(void) {
+#define make_values_request ZZ_PLAINMTP(make_values_request)
+PLAINMTP_INTERNAL IPortableDeviceKeyCollection* make_values_request(void) {
   HRESULT hr;
   IPortableDeviceKeyCollection* result;
 {
@@ -269,7 +213,8 @@ failed:
   return NULL;
 }}
 
-static struct plainmtp_context_s* make_library_context(void) {
+#define make_library_context ZZ_PLAINMTP(make_library_context)
+PLAINMTP_INTERNAL struct plainmtp_context_s* make_library_context(void) {
   HRESULT hr;
   IPortableDeviceManager* wpd_manager;
   IPortableDeviceKeyCollection* wpd_values_request;
@@ -337,7 +282,10 @@ failed:
   return NULL;
 }}
 
-static IPortableDevice* make_connection_socket( LPCWSTR device_id, plainmtp_bool read_only ) {
+#define make_connection_socket ZZ_PLAINMTP(make_connection_socket)
+PLAINMTP_INTERNAL IPortableDevice* make_connection_socket( LPCWSTR device_id,
+  plainmtp_bool read_only
+) {
   IPortableDevice* result;
   IPortableDeviceValues* machine_request;
   HRESULT hr;
@@ -508,7 +456,8 @@ void plainmtp_device_finish( struct plainmtp_device_s* device ) {
 
 /**************************************************************************************************/
 
-static void wipe_object_image( zz_plainmtp_cursor_s* object ) {
+#define wipe_object_image ZZ_PLAINMTP(wipe_object_image)
+PLAINMTP_INTERNAL void wipe_object_image( zz_plainmtp_cursor_s* object ) {
 {
   CoTaskMemFree( (void*)object->id );
   CoTaskMemFree( (void*)object->name );
@@ -516,7 +465,8 @@ static void wipe_object_image( zz_plainmtp_cursor_s* object ) {
 
 /* TODO: Consider trying more properties for name. Devices connected using Mass Storage Class
   protocol may not report WPD_OBJECT_NAME for the root (DEVICE) object - e.g. Sony DSC-H50. */
-static plainmtp_bool obtain_object_image( zz_plainmtp_cursor_s* object,
+#define obtain_object_image ZZ_PLAINMTP(obtain_object_image)
+PLAINMTP_INTERNAL plainmtp_bool obtain_object_image( zz_plainmtp_cursor_s* object,
   IPortableDeviceValues* values
 ) {
   HRESULT hr;
@@ -566,7 +516,8 @@ quit:
   return PLAINMTP_TRUE;
 }}
 
-static void clear_cursor( struct plainmtp_cursor_s* cursor ) {
+#define clear_cursor ZZ_PLAINMTP(clear_cursor)
+PLAINMTP_INTERNAL void clear_cursor( struct plainmtp_cursor_s* cursor ) {
 {
   wipe_object_image( &cursor->current_object );
   RELEASE_INSTANCE( cursor->current_values );
@@ -580,8 +531,9 @@ static void clear_cursor( struct plainmtp_cursor_s* cursor ) {
 }}
 
 /* NB: This enforces atomic one-time change to preserve cursor initial state in case of error. */
-static struct plainmtp_cursor_s* setup_cursor_by_values( struct plainmtp_cursor_s* cursor,
-  IPortableDeviceValues* values
+#define setup_cursor_by_values ZZ_PLAINMTP(setup_cursor_by_values)
+PLAINMTP_INTERNAL struct plainmtp_cursor_s* setup_cursor_by_values(
+  struct plainmtp_cursor_s* cursor, IPortableDeviceValues* values
 ) {
   zz_plainmtp_cursor_s object;
 {
@@ -605,8 +557,9 @@ static struct plainmtp_cursor_s* setup_cursor_by_values( struct plainmtp_cursor_
   return cursor;
 }}
 
-static struct plainmtp_cursor_s* setup_cursor_by_handle( struct plainmtp_cursor_s* cursor,
-  struct plainmtp_device_s* device, LPCWSTR handle
+#define setup_cursor_by_handle ZZ_PLAINMTP(setup_cursor_by_handle)
+PLAINMTP_INTERNAL struct plainmtp_cursor_s* setup_cursor_by_handle(
+  struct plainmtp_cursor_s* cursor, struct plainmtp_device_s* device, LPCWSTR handle
 ) {
   HRESULT hr;
   IPortableDeviceValues* values;
@@ -789,7 +742,8 @@ plainmtp_bool plainmtp_cursor_select( struct plainmtp_cursor_s* cursor,
 
 /**************************************************************************************************/
 
-static IStream* make_transfer_stream( struct plainmtp_cursor_s* cursor,
+#define make_transfer_stream ZZ_PLAINMTP(make_transfer_stream)
+PLAINMTP_INTERNAL IStream* make_transfer_stream( struct plainmtp_cursor_s* cursor,
   struct plainmtp_device_s* device, const wchar_t* name, uint64_t size,
   DWORD* OUT_optimal_chunk_size
 ) {
@@ -823,7 +777,8 @@ cleanup:
   return stream;
 }}
 
-static size_t stream_write( IStream* stream, const char* data, size_t size ) {
+#define stream_write ZZ_PLAINMTP(stream_write)
+PLAINMTP_INTERNAL size_t stream_write( IStream* stream, const char* data, size_t size ) {
   const size_t result = size;
 {
   /* NB: If 'data' is NULL, it will be checked and result in STG_E_INVALIDPOINTER. */

@@ -130,6 +130,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="plainmtp_wpd.c" />
+    <ClInclude Include="plainmtp_wpd.h.c">
+      <FileType>CCode</FileType>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.i.h" />

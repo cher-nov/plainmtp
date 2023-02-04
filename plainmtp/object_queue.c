@@ -1,19 +1,7 @@
-#include "object_queue.c.h"
+#include "object_queue.h.c"
 
 #include <stdlib.h>
 #include <string.h>
-
-#define CALCULATE_BUFFER_SIZE( Capacity ) \
-  ( sizeof( object_queue_s ) + (Capacity) * sizeof( object_queue_item_s ) )
-
-#define ACCESS_ELEMENTS( Queue ) \
-  ( (object_queue_item_s*) ((Queue)+1) )
-
-struct zz_plainmtp_object_queue_s {
-  size_t first;
-  size_t next;
-  size_t capacity;
-};
 
 #define object_queue_create PLAINMTP(object_queue_create)
 object_queue_s* object_queue_create( size_t capacity ) {

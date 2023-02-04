@@ -4,9 +4,9 @@
 
 #include "../3rdparty/pstdint.h"
 
-typedef struct zz_plainmtp_object_queue_s object_queue_s;
+typedef struct ZZ_PLAINMTP(object_queue_s) object_queue_s;
 
-typedef struct zz_plainmtp_object_queue_item_s {
+typedef struct ZZ_PLAINMTP(object_queue_item_s) {
   uint32_t storage_id;
   uint32_t object_handle;
 } object_queue_item_s;

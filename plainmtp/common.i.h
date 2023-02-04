@@ -24,6 +24,14 @@ typedef enum {
   #define PLAINMTP_EXTERN extern "C"
 #endif
 
+#ifndef PLAINMTP_NO_INTERNAL_API
+  #define PLAINMTP_INTERNAL
+#else
+  #define PLAINMTP_INTERNAL static
+#endif
+
+#define ZZ_PLAINMTP( Identifier ) zz_plainmtp_## Identifier
+
 #define PLAINMTP_SUBCLASS( Specifier, Super_Field ) ZZ_PLAINMTP_MACRO_EXPAND( JOIN, \
   ZZ_PLAINMTP_SUBCLASS, ( ZZ_PLAINMTP_TAG_NAME__## Specifier, Super_Field ) \
 )

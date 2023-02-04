@@ -29,5 +29,8 @@
     <ClInclude Include="common.i.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="plainmtp_wpd.h.c">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
