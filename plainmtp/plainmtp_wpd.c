@@ -8,7 +8,7 @@
 #include <PortableDeviceTypes.h>
 #include <PortableDevice.h>
 
-#if defined(_MSC_VER) && !defined(PLAINMTP_NO_PRAGMA_LINKAGE)
+#if defined(_MSC_VER) && !defined(CC_PLAINMTP_NO_PRAGMA_LINKAGE)
   #pragma comment( lib, "PortableDeviceGUIDs" )
   #pragma comment( lib, "Propsys" )
   #pragma comment( lib, "ole32" )
@@ -921,6 +921,6 @@ cleanup:
   return result;
 }}
 
-#ifdef PLAINMTP_MAIN_C_EX
-#include PLAINMTP_MAIN_C_EX
+#ifdef PP_PLAINMTP_MAIN_C_EX
+#include PP_PLAINMTP_MAIN_C_EX
 #endif

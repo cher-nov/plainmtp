@@ -1,7 +1,7 @@
 #include "object_queue.c.h"
 
 /**************************************************************************************************/
-#ifndef PLAINMTP_CONFLICTING_DIRECTIVES
+#ifndef PP_PLAINMTP_CONFLICTING_DIRECTIVES
 
 #define CALCULATE_BUFFER_SIZE( Capacity ) \
   ( sizeof( object_queue_s ) + (Capacity) * sizeof( object_queue_item_s ) )
@@ -10,7 +10,7 @@
   ( (object_queue_item_s*) ((Queue)+1) )
 
 #else
-#undef PLAINMTP_CONFLICTING_DIRECTIVES
+#undef PP_PLAINMTP_CONFLICTING_DIRECTIVES
 #endif
 /**************************************************************************************************/
 

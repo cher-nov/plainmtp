@@ -968,6 +968,6 @@ plainmtp_bool plainmtp_cursor_transfer( struct plainmtp_cursor_s* parent,
   return result;
 }}
 
-#ifdef PLAINMTP_MAIN_C_EX
-#include PLAINMTP_MAIN_C_EX
+#ifdef PP_PLAINMTP_MAIN_C_EX
+#include PP_PLAINMTP_MAIN_C_EX
 #endif

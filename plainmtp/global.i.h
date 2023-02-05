@@ -20,12 +20,12 @@ typedef enum zz_plainmtp_bool {
 
 /**************************************************************************************************/
 
-#ifndef PLAINMTP_INTERNAL_PREFIX
-  #define PLAINMTP_INTERNAL_PREFIX libplainmtp_
+#ifndef PP_PLAINMTP_INTERNAL_PREFIX
+  #define PP_PLAINMTP_INTERNAL_PREFIX libplainmtp_
 #endif
 
 #define PLAINMTP( Identifier ) \
-  ZZ_PLAINMTP_MACRO_EXPAND( MERGE, PLAINMTP_INTERNAL_PREFIX, Identifier )
+  ZZ_PLAINMTP_MACRO_EXPAND( MERGE, PP_PLAINMTP_INTERNAL_PREFIX, Identifier )
 
 #define PLAINMTP_OPAQUE( Specifier ) \
   ZZ_PLAINMTP_MACRO_EXPAND( JOIN, ZZ_PLAINMTP_OPAQUE, ( ZZ_PLAINMTP_TAG_NAME__## Specifier ) )

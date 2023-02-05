@@ -71,6 +71,6 @@ plainmtp_bool object_queue_pop( object_queue_s* data, object_queue_item_s* value
   return PLAINMTP_TRUE;
 }}
 
-#ifdef PLAINMTP_OBJECT_QUEUE_C_EX
-#include PLAINMTP_OBJECT_QUEUE_C_EX
+#ifdef PP_PLAINMTP_OBJECT_QUEUE_C_EX
+#include PP_PLAINMTP_OBJECT_QUEUE_C_EX
 #endif

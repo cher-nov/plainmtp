@@ -2,7 +2,7 @@
 #include "common.i.h"
 
 /**************************************************************************************************/
-#ifndef PLAINMTP_CONFLICTING_DIRECTIVES
+#ifndef PP_PLAINMTP_CONFLICTING_DIRECTIVES
 
 /**************************************/
 #define WIN32_LEAN_AND_MEAN
@@ -43,7 +43,7 @@
   if ((interface) != NULL) RELEASE_INSTANCE( interface )
 
 #else
-#undef PLAINMTP_CONFLICTING_DIRECTIVES
+#undef PP_PLAINMTP_CONFLICTING_DIRECTIVES
 #endif
 /**************************************************************************************************/
 
@@ -83,7 +83,7 @@ PLAINMTP_SUBCLASS( struct plainmtp_cursor_s, current_object ) (
 );
 
 /**************************************************************************************************/
-#ifndef PLAINMTP_NO_INTERNAL_API
+#ifndef CC_PLAINMTP_NO_INTERNAL_API
 
 PLAINMTP_EXTERN LPWSTR ZZ_PLAINMTP(make_device_info( IPortableDeviceManager* wpd_manager,
   LPCWSTR device_id, device_info_string_f method ));
@@ -111,4 +111,4 @@ PLAINMTP_EXTERN IStream* ZZ_PLAINMTP(make_transfer_stream( struct plainmtp_curso
   DWORD* OUT_optimal_chunk_size ));
 PLAINMTP_EXTERN size_t ZZ_PLAINMTP(stream_write( IStream* stream, const char* data, size_t size ));
 
-#endif /* PLAINMTP_NO_INTERNAL_API */
+#endif /* CC_PLAINMTP_NO_INTERNAL_API */

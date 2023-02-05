@@ -2,7 +2,7 @@
 #include "common.i.h"
 
 /**************************************************************************************************/
-#ifndef PLAINMTP_CONFLICTING_DIRECTIVES
+#ifndef PP_PLAINMTP_CONFLICTING_DIRECTIVES
 
 #include <libmtp.h>
 
@@ -23,7 +23,7 @@
   !( ( (String) == NULL ) || ( (String)[0] == L'\0' ) )
 
 #else
-#undef PLAINMTP_CONFLICTING_DIRECTIVES
+#undef PP_PLAINMTP_CONFLICTING_DIRECTIVES
 #endif
 /**************************************************************************************************/
 
@@ -90,7 +90,7 @@ PLAINMTP_SUBCLASS( struct plainmtp_cursor_s, current_entity ) (
 );
 
 /**************************************************************************************************/
-#ifndef PLAINMTP_NO_INTERNAL_API
+#ifndef CC_PLAINMTP_NO_INTERNAL_API
 
 PLAINMTP_EXTERN plainmtp_bool ZZ_PLAINMTP(is_libmtp_initialized);
 
@@ -150,4 +150,4 @@ PLAINMTP_EXTERN plainmtp_bool ZZ_PLAINMTP(select_object_next( struct plainmtp_cu
 PLAINMTP_EXTERN uint16_t ZZ_PLAINMTP(cb_file_data_exchange( void* ptp_context, void* wrapper_state,
   uint32_t chunk_size, unsigned char* chunk_data, uint32_t* OUT_processed ));
 
-#endif /* PLAINMTP_NO_INTERNAL_API */
+#endif /* CC_PLAINMTP_NO_INTERNAL_API */

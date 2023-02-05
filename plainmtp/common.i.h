@@ -24,7 +24,7 @@ typedef enum {
   #define PLAINMTP_EXTERN extern "C"
 #endif
 
-#ifndef PLAINMTP_NO_INTERNAL_API
+#ifndef CC_PLAINMTP_NO_INTERNAL_API
   #define PLAINMTP_INTERNAL
 #else
   #define PLAINMTP_INTERNAL static

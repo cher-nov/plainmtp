@@ -48,7 +48,7 @@
 			<Add option="-Wall" />
 			<Add option="-std=iso9899:199409" />
 			<Add option="-save-temps=obj" />
-			<Add option="-DPLAINMTP_FALLBACK_WCSDUP" />
+			<Add option="-DCC_PLAINMTP_FALLBACK_WCSDUP" />
 		</Compiler>
 		<Linker>
 			<Add library="mtp" />
