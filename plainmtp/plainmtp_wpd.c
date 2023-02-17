@@ -36,8 +36,8 @@
   - Temporary objects (that is, those required only for initialization) are handled in separate
     functions with more structured cleanup of them before return, both on success and failure.
 
-  - Keep in mind the presence of a NULL check in CoTaskMemFree() and apply it where possible to
-    use RELEASE_INSTANCE() instead of RELEASE_INSTANCE_SAFE(), with no variable initialization.
+  - Keep in mind the presence of the NULL check in CoTaskMemFree() and apply it where possible to
+    avoid excessive NULL checks in our code, while also trying not to initialize variables to NULL.
 
   - Use the facts that on acquiring the first resource, cleanup is not needed in case of error, and
     that the last resource acquired before return doesn't need release code in the cleanup block.
@@ -64,7 +64,7 @@
   - WPD also assigns PUIDs even for portable devices that use other protocols than PTP/MTP (e.g.
     Mass Storage Class). I've tested Sony DSC-H50 in Mass Storage mode, and PUIDs and object
     handles were consisting of full file paths on the storage, with the only difference that PUIDs
-    were percent-encoded. But ->GetObjectIDsFromPersistentUniqueIDs() method understood such a PUID
+    were percent-encoded. But ::GetObjectIDsFromPersistentUniqueIDs() method understood such a PUID
     without percent-encoding as well. So it seems that PUIDs in WPD are also implicitly compatible
     with the FAT and NTFS filesystems used by Windows, though it's an undocumented feature. An
     indirect proof of this is the fact that Windows Explorer, in order to open files from PTP/MTP
@@ -101,7 +101,7 @@ PLAINMTP_INTERNAL LPWSTR make_device_info( IPortableDeviceManager* wpd_manager, 
 /* NB: We need this rather meaningless function because the C95 standard prohibits to copy a value
   of type 'T*' into an object of type 'const T*' via a pointer of type 'T**', while at the same
   time assigning them without an explicit typecast is permitted. So we're unable to just directly
-  pass a LPCWSTR buffer to the ->GetDevices() method that expects a LPWSTR one.
+  pass a LPCWSTR buffer to the ::GetDevices() method that expects a LPWSTR one.
   https://stackoverflow.com/questions/74370703/modify-pointer-to-const-variable-const-int-through-a-pointer-to-pointer-to
   Seems like an arbitrary (i.e. unnecessarily restrictive) constraint of C95 at least. */
 #define obtain_wpd_device_ids ZZ_PLAINMTP(obtain_wpd_device_ids)
@@ -115,7 +115,7 @@ PLAINMTP_INTERNAL DWORD obtain_wpd_device_ids( IPortableDeviceManager* wpd_manag
   wpd_device_ids = CoTaskMemAlloc( max_count * sizeof(*wpd_device_ids) );
   if (wpd_device_ids == NULL) { return 0; }
 
-  hr = INVOKE( wpd_manager, ->GetDevices ), wpd_device_ids, &max_count );
+  hr = IPortableDeviceManager_GetDevices( wpd_manager, wpd_device_ids, &max_count );
   if (SUCCEEDED(hr)) {
     for (i = 0; i < max_count; ++i) { buffer[i] = wpd_device_ids[i]; }
   } else {
@@ -151,22 +151,23 @@ PLAINMTP_INTERNAL LPWSTR make_object_handle_from_puid( IPortableDeviceContent* w
   V_VT(&propvar) = VT_LPWSTR;
   V_UNION(&propvar, pwszVal) = (LPWSTR)object_puid;
 
-  hr = INVOKE_1( puid_list, ->Add, &propvar );
+  hr = IPortableDevicePropVariantCollection_Add( puid_list, &propvar );
 
   /* It's necessary to explicitly state that we don't own the string to prevent deallocation. */
   V_UNION(&propvar, pwszVal) = NULL;
   (void)PropVariantClear( &propvar );
 
   if (SUCCEEDED(hr)) {
-    hr = INVOKE( wpd_content, ->GetObjectIDsFromPersistentUniqueIDs ), puid_list, &handle_list );
+    hr = IPortableDeviceContent_GetObjectIDsFromPersistentUniqueIDs( wpd_content, puid_list,
+      &handle_list );
   }
 
-  RELEASE_INSTANCE( puid_list );
+  IUnknown_Release( puid_list );
   if (FAILED(hr)) { return NULL; }
 
   /* PropVariantClear() reinitializes the variant, so we don't invoke PropVariantInit() again. */
-  hr = INVOKE( handle_list, ->GetAt ), 0, &propvar );
-  RELEASE_INSTANCE( handle_list );
+  hr = IPortableDevicePropVariantCollection_GetAt( handle_list, 0, &propvar );
+  IUnknown_Release( handle_list );
   if (FAILED(hr)) { return NULL; }
 
   (void)PropVariantToStringAlloc( &propvar, &result );  /* Will set 'result' to NULL on error. */
@@ -184,32 +185,32 @@ PLAINMTP_INTERNAL IPortableDeviceKeyCollection* make_values_request(void) {
     &IID_IPortableDeviceKeyCollection, &result );
 
   if (SUCCEEDED(hr)) {
-    hr = INVOKE_1( result, ->Add, &WPD_OBJECT_ID );
+    hr = IPortableDeviceKeyCollection_Add( result, &WPD_OBJECT_ID );
     if (FAILED(hr)) { goto failed; }
 
-    hr = INVOKE_1( result, ->Add, &WPD_OBJECT_PERSISTENT_UNIQUE_ID );
+    hr = IPortableDeviceKeyCollection_Add( result, &WPD_OBJECT_PERSISTENT_UNIQUE_ID );
     if (FAILED(hr)) { goto failed; }
 
-    hr = INVOKE_1( result, ->Add, &WPD_OBJECT_PARENT_ID );
+    hr = IPortableDeviceKeyCollection_Add( result, &WPD_OBJECT_PARENT_ID );
     if (FAILED(hr)) { goto failed; }
 
-    hr = INVOKE_1( result, ->Add, &WPD_OBJECT_ORIGINAL_FILE_NAME );
+    hr = IPortableDeviceKeyCollection_Add( result, &WPD_OBJECT_ORIGINAL_FILE_NAME );
     if (FAILED(hr)) { goto failed; }
 
-    hr = INVOKE_1( result, ->Add, &WPD_OBJECT_HINT_LOCATION_DISPLAY_NAME );
+    hr = IPortableDeviceKeyCollection_Add( result, &WPD_OBJECT_HINT_LOCATION_DISPLAY_NAME );
     if (FAILED(hr)) { goto failed; }
 
-    hr = INVOKE_1( result, ->Add, &WPD_OBJECT_NAME );
+    hr = IPortableDeviceKeyCollection_Add( result, &WPD_OBJECT_NAME );
     if (FAILED(hr)) { goto failed; }
 
-    hr = INVOKE_1( result, ->Add, &WPD_OBJECT_DATE_MODIFIED );
+    hr = IPortableDeviceKeyCollection_Add( result, &WPD_OBJECT_DATE_MODIFIED );
     if (FAILED(hr)) { goto failed; }
   }
 
   return result;
 
 failed:
-  RELEASE_INSTANCE( result );
+  IUnknown_Release( result );
   return NULL;
 }}
 
@@ -226,7 +227,7 @@ PLAINMTP_INTERNAL struct plainmtp_context_s* make_library_context(void) {
     &IID_IPortableDeviceManager, &wpd_manager );
   if (FAILED(hr)) { goto failed; }
 
-  hr = INVOKE( wpd_manager, ->GetDevices ), NULL, &wpd_device_count );
+  hr = IPortableDeviceManager_GetDevices( wpd_manager, NULL, &wpd_device_count );
   if (FAILED(hr)) { goto failed_main; }
 
   wpd_values_request = make_values_request();
@@ -273,10 +274,10 @@ PLAINMTP_INTERNAL struct plainmtp_context_s* make_library_context(void) {
 
 failed_full:
   CoTaskMemFree( context );
-  RELEASE_INSTANCE( wpd_values_request );
+  IUnknown_Release( wpd_values_request );
 
 failed_main:
-  RELEASE_INSTANCE( wpd_manager );
+  IUnknown_Release( wpd_manager );
 
 failed:
   return NULL;
@@ -307,31 +308,31 @@ PLAINMTP_INTERNAL IPortableDevice* make_connection_socket( LPCWSTR device_id,
     &IID_IPortableDeviceValues, &machine_request );
 
   if (SUCCEEDED(hr)) {
-    (void)(INVOKE( machine_request, ->SetUnsignedIntegerValue ),
-      &WPD_CLIENT_SECURITY_QUALITY_OF_SERVICE, SECURITY_IMPERSONATION ));
-    (void)(INVOKE( machine_request, ->SetUnsignedIntegerValue ),
-      &WPD_CLIENT_MAJOR_VERSION, PLAINMTP_VERSION_MAJOR ));
-    (void)(INVOKE( machine_request, ->SetUnsignedIntegerValue ),
-      &WPD_CLIENT_MINOR_VERSION, PLAINMTP_VERSION_MINOR ));
-    (void)(INVOKE( machine_request, ->SetUnsignedIntegerValue ),
-      &WPD_CLIENT_REVISION, PLAINMTP_VERSION_BUILD ));
-    (void)(INVOKE( machine_request, ->SetStringValue ),
-      &WPD_CLIENT_NAME, L"plainmtp - Windows Portable Devices (WPD)" ));
+    (void)IPortableDeviceValues_SetUnsignedIntegerValue( machine_request,
+      &WPD_CLIENT_SECURITY_QUALITY_OF_SERVICE, SECURITY_IMPERSONATION );
+    (void)IPortableDeviceValues_SetUnsignedIntegerValue( machine_request,
+      &WPD_CLIENT_MAJOR_VERSION, PLAINMTP_VERSION_MAJOR );
+    (void)IPortableDeviceValues_SetUnsignedIntegerValue( machine_request,
+      &WPD_CLIENT_MINOR_VERSION, PLAINMTP_VERSION_MINOR );
+    (void)IPortableDeviceValues_SetUnsignedIntegerValue( machine_request,
+      &WPD_CLIENT_REVISION, PLAINMTP_VERSION_BUILD );
+    (void)IPortableDeviceValues_SetStringValue( machine_request,
+      &WPD_CLIENT_NAME, L"plainmtp - Windows Portable Devices (WPD)" );
 
-    (void)(INVOKE( machine_request, ->SetUnsignedIntegerValue ),
-      &WPD_CLIENT_DESIRED_ACCESS, file_mode ));
-    (void)(INVOKE( machine_request, ->SetUnsignedIntegerValue ),
-      &WPD_CLIENT_SHARE_MODE, share_mode ));
+    (void)IPortableDeviceValues_SetUnsignedIntegerValue( machine_request,
+      &WPD_CLIENT_DESIRED_ACCESS, file_mode );
+    (void)IPortableDeviceValues_SetUnsignedIntegerValue( machine_request,
+      &WPD_CLIENT_SHARE_MODE, share_mode );
 
-    /*(void)(INVOKE( machine_request, ->SetUnsignedIntegerValue ),
-      &WPD_CLIENT_MANUAL_CLOSE_ON_DISCONNECT, TRUE ));*/
+    /*(void)IPortableDeviceValues_SetUnsignedIntegerValue( machine_request,
+      &WPD_CLIENT_MANUAL_CLOSE_ON_DISCONNECT, TRUE );*/
 
-    hr = INVOKE( result, ->Open ), device_id, machine_request );
-    RELEASE_INSTANCE( machine_request );
+    hr = IPortableDevice_Open( result, device_id, machine_request );
+    IUnknown_Release( machine_request );
     if (SUCCEEDED(hr)) { return result; }
   }
 
-  RELEASE_INSTANCE( result );
+  IUnknown_Release( result );
   return NULL;
 }}
 
@@ -372,8 +373,8 @@ void plainmtp_shutdown( struct plainmtp_context_s* context ) {
     CoTaskMemFree( (void*)context->device_list.strings[i] );
   }
 
-  RELEASE_INSTANCE( context->wpd_manager );
-  RELEASE_INSTANCE( context->wpd_values_request );
+  IUnknown_Release( context->wpd_manager );
+  IUnknown_Release( context->wpd_values_request );
 
   CoTaskMemFree( context );
   CoUninitialize();
@@ -402,35 +403,35 @@ struct plainmtp_device_s* plainmtp_device_start( struct plainmtp_context_s* cont
         read_only );
       if (device->wpd_socket == NULL) break;
     },{
-      /*INVOKE_0( device->wpd_socket, ->Close );*/
-      RELEASE_INSTANCE( device->wpd_socket );
+      /*IPortableDevice_Close( device->wpd_socket );*/
+      IUnknown_Release( device->wpd_socket );
     });
 
     STAGER_PHASE(3, {
-      hr = INVOKE_1( device->wpd_socket, ->Content, &device->wpd_content );
+      hr = IPortableDevice_Content( device->wpd_socket, &device->wpd_content );
       if (FAILED(hr)) break;
     },{
-      RELEASE_INSTANCE( device->wpd_content );
+      IUnknown_Release( device->wpd_content );
     });
 
     STAGER_PHASE(4, {
-      hr = INVOKE_1( device->wpd_content, ->Transfer, &device->wpd_resources );
+      hr = IPortableDeviceContent_Transfer( device->wpd_content, &device->wpd_resources );
       if (FAILED(hr)) break;
     },{
-      RELEASE_INSTANCE( device->wpd_resources );
+      IUnknown_Release( device->wpd_resources );
     });
 
     STAGER_PHASE(5, {
-      hr = INVOKE_1( device->wpd_content, ->Properties, &device->wpd_properties );
+      hr = IPortableDeviceContent_Properties( device->wpd_content, &device->wpd_properties );
       if (FAILED(hr)) break;
     },{
-      RELEASE_INSTANCE( device->wpd_properties );
+      IUnknown_Release( device->wpd_properties );
     });
 
     STAGER_SUCCESS({
       /* As this instance is identical across all the devices, we just obtain a reference to it. */
       device->values_request = context->wpd_values_request;
-      (void)INVOKE_0( context->wpd_values_request, ->AddRef );
+      (void)IUnknown_AddRef( context->wpd_values_request );
       return device;
     });
   }
@@ -442,14 +443,14 @@ void plainmtp_device_finish( struct plainmtp_device_s* device ) {
 {
   assert( device != NULL );
 
-  RELEASE_INSTANCE( device->values_request );
+  IUnknown_Release( device->values_request );
 
-  RELEASE_INSTANCE( device->wpd_properties );
-  RELEASE_INSTANCE( device->wpd_resources );
-  RELEASE_INSTANCE( device->wpd_content );
+  IUnknown_Release( device->wpd_properties );
+  IUnknown_Release( device->wpd_resources );
+  IUnknown_Release( device->wpd_content );
 
-  /*INVOKE_0( device->wpd_socket, ->Close );*/
-  RELEASE_INSTANCE( device->wpd_socket );
+  /*IPortableDevice_Close( device->wpd_socket );*/
+  IUnknown_Release( device->wpd_socket );
 
   CoTaskMemFree( device );
 }}
@@ -474,12 +475,12 @@ PLAINMTP_INTERNAL plainmtp_bool obtain_object_image( zz_plainmtp_cursor_s* objec
   PROPVARIANT propvar;
   SYSTEMTIME systime;
 {
-  hr = INVOKE( values, ->GetStringValue ), &WPD_OBJECT_PERSISTENT_UNIQUE_ID, &tempstr );
+  hr = IPortableDeviceValues_GetStringValue( values, &WPD_OBJECT_PERSISTENT_UNIQUE_ID, &tempstr );
   if (FAILED(hr)) { return PLAINMTP_FALSE; }
   object->id = tempstr;
 
   PropVariantInit( &propvar );
-  hr = INVOKE( values, ->GetValue ), &WPD_OBJECT_DATE_MODIFIED, &propvar );
+  hr = IPortableDeviceValues_GetValue( values, &WPD_OBJECT_DATE_MODIFIED, &propvar );
 
   if ( SUCCEEDED(hr)
     && (V_VT(&propvar) == VT_DATE)
@@ -502,13 +503,14 @@ PLAINMTP_INTERNAL plainmtp_bool obtain_object_image( zz_plainmtp_cursor_s* objec
 
   (void)PropVariantClear( &propvar );
 
-  hr = INVOKE( values, ->GetStringValue ), &WPD_OBJECT_ORIGINAL_FILE_NAME, &tempstr );
+  hr = IPortableDeviceValues_GetStringValue( values, &WPD_OBJECT_ORIGINAL_FILE_NAME, &tempstr );
   if (SUCCEEDED(hr)) { goto quit; }
 
   /* This is required at least for storage objects because they don't have a proper filename. */
-  hr = INVOKE( values, ->GetStringValue ), &WPD_OBJECT_HINT_LOCATION_DISPLAY_NAME, &tempstr );
+  hr = IPortableDeviceValues_GetStringValue( values, &WPD_OBJECT_HINT_LOCATION_DISPLAY_NAME,
+    &tempstr );
   if (SUCCEEDED(hr)) { goto quit; }
-  hr = INVOKE( values, ->GetStringValue ), &WPD_OBJECT_NAME, &tempstr );
+  hr = IPortableDeviceValues_GetStringValue( values, &WPD_OBJECT_NAME, &tempstr );
   if (FAILED(hr)) { tempstr = NULL; }
 
 quit:
@@ -520,14 +522,16 @@ quit:
 PLAINMTP_INTERNAL void clear_cursor( struct plainmtp_cursor_s* cursor ) {
 {
   wipe_object_image( &cursor->current_object );
-  RELEASE_INSTANCE( cursor->current_values );
+  IUnknown_Release( cursor->current_values );
 
   if (cursor->parent_values != NULL) {
     wipe_object_image( &cursor->parent_object );
-    RELEASE_INSTANCE( cursor->parent_values );
+    IUnknown_Release( cursor->parent_values );
   }
 
-  RELEASE_INSTANCE_SAFE( cursor->enumerator );
+  if (cursor->enumerator != NULL) {
+    IUnknown_Release( cursor->enumerator );
+  }
 }}
 
 /* NB: This enforces atomic one-time change to preserve cursor initial state in case of error. */
@@ -550,7 +554,7 @@ PLAINMTP_INTERNAL struct plainmtp_cursor_s* setup_cursor_by_values(
   }
 
   cursor->current_object = object;
-  cursor->current_values = values;  /* Caller must perform ->AddRef() by itself, if necessary. */
+  cursor->current_values = values;  /* Caller must perform ::AddRef() by itself, if necessary. */
   cursor->parent_values = NULL;
   cursor->enumerator = NULL;
 
@@ -564,11 +568,12 @@ PLAINMTP_INTERNAL struct plainmtp_cursor_s* setup_cursor_by_handle(
   HRESULT hr;
   IPortableDeviceValues* values;
 {
-  hr = INVOKE( device->wpd_properties, ->GetValues ), handle, device->values_request, &values );
+  hr = IPortableDeviceProperties_GetValues( device->wpd_properties, handle, device->values_request,
+    &values );
   if (FAILED(hr)) { return NULL; }
 
   cursor = setup_cursor_by_values( cursor, values );
-  if (cursor == NULL) { RELEASE_INSTANCE( values ); }
+  if (cursor == NULL) { IUnknown_Release( values ); }
 
   return cursor;
 }}
@@ -584,7 +589,7 @@ struct plainmtp_cursor_s* plainmtp_cursor_assign( struct plainmtp_cursor_s* curs
     }
 
     cursor = setup_cursor_by_values( cursor, source->current_values );
-    if (cursor != NULL) { (void)INVOKE_0( source->current_values, ->AddRef ); }
+    if (cursor != NULL) { (void)IUnknown_AddRef( source->current_values ); }
   }
 
   return cursor;
@@ -621,7 +626,7 @@ plainmtp_bool plainmtp_cursor_update( struct plainmtp_cursor_s* cursor,
   assert( cursor != NULL );
   assert( device != NULL );
 
-  hr = INVOKE( cursor->current_values, ->GetStringValue ), &WPD_OBJECT_ID, &handle );
+  hr = IPortableDeviceValues_GetStringValue( cursor->current_values, &WPD_OBJECT_ID, &handle );
   if (FAILED(hr)) { return PLAINMTP_FALSE; }
 
   cursor = setup_cursor_by_handle( cursor, device, handle );
@@ -644,7 +649,7 @@ plainmtp_bool plainmtp_cursor_return( struct plainmtp_cursor_s* cursor,
 
   if (is_shadowed) {
     wipe_object_image( &cursor->current_object );
-    RELEASE_INSTANCE( cursor->current_values );
+    IUnknown_Release( cursor->current_values );
 
     cursor->current_object = cursor->parent_object;
     cursor->current_values = cursor->parent_values;
@@ -653,7 +658,8 @@ plainmtp_bool plainmtp_cursor_return( struct plainmtp_cursor_s* cursor,
     return PLAINMTP_TRUE;
   }
 
-  hr = INVOKE( cursor->current_values, ->GetStringValue ), &WPD_OBJECT_PARENT_ID, &handle );
+  hr = IPortableDeviceValues_GetStringValue( cursor->current_values, &WPD_OBJECT_PARENT_ID,
+    &handle );
   if (FAILED(hr)) { return PLAINMTP_FALSE; }
 
   /* NB: The semantics of this function is such that it should return FALSE on error only. On the
@@ -683,11 +689,11 @@ plainmtp_bool plainmtp_cursor_select( struct plainmtp_cursor_s* cursor,
   if (device == NULL) {
     if (cursor->enumerator == NULL) { return PLAINMTP_TRUE; }
     if (cursor->parent_values != NULL) {
-      RELEASE_INSTANCE( cursor->enumerator );
+      IUnknown_Release( cursor->enumerator );
       cursor->enumerator = NULL;
 
       wipe_object_image( &cursor->parent_object );
-      RELEASE_INSTANCE( cursor->parent_values );
+      IUnknown_Release( cursor->parent_values );
       cursor->parent_values = NULL;
     }
 
@@ -696,12 +702,13 @@ plainmtp_bool plainmtp_cursor_select( struct plainmtp_cursor_s* cursor,
 
   if (cursor->parent_values == NULL) {
     if (cursor->enumerator != NULL) {
-      hr = INVOKE_0( cursor->enumerator, ->Reset );
+      hr = IEnumPortableDeviceObjectIDs_Reset( cursor->enumerator );
     } else {
-      hr = INVOKE( cursor->current_values, ->GetStringValue ), &WPD_OBJECT_ID, &handle );
+      hr = IPortableDeviceValues_GetStringValue( cursor->current_values, &WPD_OBJECT_ID, &handle );
       if (FAILED(hr)) { return PLAINMTP_FALSE; }
 
-      hr = INVOKE( device->wpd_content, ->EnumObjects ), 0, handle, NULL, &cursor->enumerator );
+      hr = IPortableDeviceContent_EnumObjects( device->wpd_content, 0, handle, NULL,
+        &cursor->enumerator );
       CoTaskMemFree( handle );
     }
 
@@ -710,12 +717,13 @@ plainmtp_bool plainmtp_cursor_select( struct plainmtp_cursor_s* cursor,
     cursor->parent_values = cursor->current_values;
   } else {
     wipe_object_image( &cursor->current_object );
-    RELEASE_INSTANCE( cursor->current_values );
+    IUnknown_Release( cursor->current_values );
   }
 
-  hr = INVOKE( cursor->enumerator, ->Next ), 1, &handle, NULL );
+  hr = IEnumPortableDeviceObjectIDs_Next( cursor->enumerator, 1, &handle, NULL );
   if (hr == S_OK) {
-    hr = INVOKE( device->wpd_properties, ->GetValues ), handle, device->values_request, &values );
+    hr = IPortableDeviceProperties_GetValues( device->wpd_properties, handle,
+      device->values_request, &values );
     CoTaskMemFree( handle );
 
     if (SUCCEEDED(hr)) {
@@ -724,7 +732,7 @@ plainmtp_bool plainmtp_cursor_select( struct plainmtp_cursor_s* cursor,
         return PLAINMTP_TRUE;
       }
 
-      RELEASE_INSTANCE( values );
+      IUnknown_Release( values );
     }
   }
 
@@ -733,7 +741,7 @@ plainmtp_bool plainmtp_cursor_select( struct plainmtp_cursor_s* cursor,
   cursor->parent_values = NULL;
 
   if (FAILED(hr)) {
-    RELEASE_INSTANCE( cursor->enumerator );
+    IUnknown_Release( cursor->enumerator );
     cursor->enumerator = NULL;
   }
 
@@ -756,24 +764,25 @@ PLAINMTP_INTERNAL IStream* make_transfer_stream( struct plainmtp_cursor_s* curso
     &IID_IPortableDeviceValues, &transfer_request );
   if (FAILED(hr)) { return NULL; }
 
-  hr = INVOKE( transfer_request, ->SetStringValue ), &WPD_OBJECT_NAME, name );
+  hr = IPortableDeviceValues_SetStringValue( transfer_request, &WPD_OBJECT_NAME, name );
   if (FAILED(hr)) { goto cleanup; }
 
-  hr = INVOKE( transfer_request, ->SetUnsignedLargeIntegerValue ), &WPD_OBJECT_SIZE, size );
+  hr = IPortableDeviceValues_SetUnsignedLargeIntegerValue( transfer_request, &WPD_OBJECT_SIZE,
+    size );
   if (FAILED(hr)) { goto cleanup; }
 
-  hr = INVOKE( cursor->current_values, ->GetStringValue ), &WPD_OBJECT_ID, &handle );
+  hr = IPortableDeviceValues_GetStringValue( cursor->current_values, &WPD_OBJECT_ID, &handle );
   if (FAILED(hr)) { goto cleanup; }
 
-  hr = INVOKE( transfer_request, ->SetStringValue ), &WPD_OBJECT_PARENT_ID, handle );
+  hr = IPortableDeviceValues_SetStringValue( transfer_request, &WPD_OBJECT_PARENT_ID, handle );
   CoTaskMemFree( handle );
   if (FAILED(hr)) { goto cleanup; }
 
-  (void)INVOKE( device->wpd_content, ->CreateObjectWithPropertiesAndData ), transfer_request,
-    &stream, OUT_optimal_chunk_size, NULL );
+  (void)IPortableDeviceContent_CreateObjectWithPropertiesAndData( device->wpd_content,
+    transfer_request, &stream, OUT_optimal_chunk_size, NULL );
 
 cleanup:
-  RELEASE_INSTANCE( transfer_request );
+  IUnknown_Release( transfer_request );
   return stream;
 }}
 
@@ -784,7 +793,7 @@ PLAINMTP_INTERNAL size_t stream_write( IStream* stream, const char* data, size_t
   /* NB: If 'data' is NULL, it will be checked and result in STG_E_INVALIDPOINTER. */
   do {
     ULONG bytes_written = 0;
-    (void)INVOKE( stream, ->Write ), data, (ULONG)size, &bytes_written );
+    (void)ISequentialStream_Write( stream, data, (ULONG)size, &bytes_written );
     if (bytes_written == 0) { return 0; }
     data += bytes_written;
     size -= bytes_written;
@@ -807,11 +816,11 @@ plainmtp_bool plainmtp_cursor_receive( struct plainmtp_cursor_s* cursor,
   assert( device != NULL );
   assert( callback != NULL );
 
-  hr = INVOKE( cursor->current_values, ->GetStringValue ), &WPD_OBJECT_ID, &handle );
+  hr = IPortableDeviceValues_GetStringValue( cursor->current_values, &WPD_OBJECT_ID, &handle );
   if (FAILED(hr)) { return PLAINMTP_FALSE; }
 
-  hr = INVOKE( device->wpd_resources, ->GetStream ), handle, &WPD_RESOURCE_DEFAULT, STGM_READ,
-    &optimal_chunk_size, &stream );
+  hr = IPortableDeviceResources_GetStream( device->wpd_resources, handle, &WPD_RESOURCE_DEFAULT,
+    STGM_READ, &optimal_chunk_size, &stream );
   CoTaskMemFree( handle );
   if (FAILED(hr)) { return PLAINMTP_FALSE; }
 
@@ -834,8 +843,8 @@ plainmtp_bool plainmtp_cursor_receive( struct plainmtp_cursor_s* cursor,
       read without any errors due to the end of the stream. In this case, it still returns S_OK. */
 
     while (
-      bytes_read = 0,  /* NB: IPortableDeviceDataStream->Read() does not set this to 0 on error. */
-      hr = INVOKE( stream, ->Read ), chunk, (ULONG)chunk_limit, &bytes_read ),
+      bytes_read = 0,  /* NB: IPortableDeviceDataStream::Read() does not set this to 0 on error. */
+      hr = ISequentialStream_Read( stream, chunk, (ULONG)chunk_limit, &bytes_read ),
       bytes_read != 0
     ) {
       /* NB: If the callback unexpectedly returns NULL, this will lead to STG_E_INVALIDPOINTER. */
@@ -845,7 +854,7 @@ plainmtp_bool plainmtp_cursor_receive( struct plainmtp_cursor_s* cursor,
     (void)callback( buffer, 0, custom_state );
   }
 
-  RELEASE_INSTANCE( stream );
+  IUnknown_Release( stream );
   return SUCCEEDED(hr);
 }}
 
@@ -895,16 +904,16 @@ plainmtp_bool plainmtp_cursor_transfer( struct plainmtp_cursor_s* parent,
     goto cleanup;
   }
 
-  hr = INVOKE_1( stream, ->Commit, STGC_DEFAULT );
+  hr = IStream_Commit( stream, STGC_DEFAULT );
   if (FAILED(hr)) { goto cleanup; }
 
   if (SET_cursor != NULL) {
     IPortableDeviceDataStream* wpd_stream;
-    hr = INVOKE( stream, ->QueryInterface ), &IID_IPortableDeviceDataStream, &wpd_stream );
+    hr = IUnknown_QueryInterface( stream, &IID_IPortableDeviceDataStream, &wpd_stream );
     if (FAILED(hr)) { goto no_cursor; }
 
-    hr = INVOKE_1( wpd_stream, ->GetObjectID, &handle );
-    RELEASE_INSTANCE( wpd_stream );
+    hr = IPortableDeviceDataStream_GetObjectID( wpd_stream, &handle );
+    IUnknown_Release( wpd_stream );
 
     if (SUCCEEDED(hr)) {
       *SET_cursor = setup_cursor_by_handle( *SET_cursor, device, handle );
@@ -917,7 +926,7 @@ no_cursor:
 
   result = PLAINMTP_TRUE;
 cleanup:
-  RELEASE_INSTANCE( stream );
+  IUnknown_Release( stream );
   return result;
 }}
 

@@ -4,9 +4,10 @@
 /**************************************************************************************************/
 #ifndef PP_PLAINMTP_CONFLICTING_DIRECTIVES
 
-/**************************************/
 #define WIN32_LEAN_AND_MEAN
 #define CONST_VTABLE
+#define COBJMACROS
+#define CINTERFACE  /* just for more obvious errors in case of attempt to compile in C++ mode */
 
 /* https://docs.microsoft.com/en-us/windows/win32/winprog/using-the-windows-headers */
 /* https://docs.microsoft.com/en-us/cpp/porting/modifying-winver-and-win32-winnt */
@@ -25,22 +26,6 @@
 
 #include <Windows.h>
 #include <PortableDeviceApi.h>
-/**************************************/
-
-#define INVOKE( interface, method ) \
-  (interface)->lpVtbl method ( (interface)
-
-#define INVOKE_0( interface, method ) \
-  ( (interface)->lpVtbl method ( interface ) )
-
-#define INVOKE_1( interface, method, argument ) \
-  ( (interface)->lpVtbl method ( interface, argument ) )
-
-#define RELEASE_INSTANCE( interface ) \
-  ( (void)( (interface)->lpVtbl->Release( interface ) ) )
-
-#define RELEASE_INSTANCE_SAFE( interface ) \
-  if ((interface) != NULL) RELEASE_INSTANCE( interface )
 
 #else
 #undef PP_PLAINMTP_CONFLICTING_DIRECTIVES
