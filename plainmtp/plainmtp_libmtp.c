@@ -8,10 +8,6 @@
 #include "utf8_wchar.c.h"
 #include "fallbacks.c.h"
 
-/* NB: The code marked with the "SHARED MEMORY MOMENT" comment depends on the implicit assumption
-  that our library and libmtp will share the same memory allocator and heap across a module
-  boundary. Seems to be a mistake of the libmtp API: https://github.com/libmtp/libmtp/issues/121 */
-
 #define is_libmtp_initialized ZZ_PLAINMTP(is_libmtp_initialized)
 PLAINMTP_INTERNAL plainmtp_bool is_libmtp_initialized = PLAINMTP_FALSE;
 
@@ -68,7 +64,7 @@ PLAINMTP_INTERNAL cursor_entity_e get_cursor_state( struct plainmtp_cursor_s* cu
 
 #define make_device_info ZZ_PLAINMTP(make_device_info)
 PLAINMTP_INTERNAL wchar_t* make_device_info( LIBMTP_mtpdevice_t* socket,
-  device_info_string_f method
+  libmtp_device_info_f method
 ) {
   wchar_t* result;
   char* utf8_string;
@@ -77,7 +73,7 @@ PLAINMTP_INTERNAL wchar_t* make_device_info( LIBMTP_mtpdevice_t* socket,
   if (utf8_string == NULL) { return NULL; }
 
   result = PLAINMTP(make_wide_string_from_utf8( utf8_string, NULL ));
-  free( utf8_string );  /* SHARED MEMORY MOMENT */
+  LIBMTP_FreeMemory( utf8_string );
 
   return result;
 }}
@@ -209,7 +205,7 @@ struct plainmtp_context_s* plainmtp_startup(void) {
   return context;
 
 failed:
-  free( libmtp_hardware_list );  /* SHARED MEMORY MOMENT */
+  LIBMTP_FreeMemory( libmtp_hardware_list );
   return NULL;
 }}
 
@@ -224,7 +220,7 @@ void plainmtp_shutdown( struct plainmtp_context_s* context ) {
     free( (void*)context->device_list.strings[i] );
   }
 
-  free( context->hardware_list );  /* SHARED MEMORY MOMENT */
+  LIBMTP_FreeMemory( context->hardware_list );
   free( context );
 }}
 

@@ -27,7 +27,7 @@
 #endif
 /**************************************************************************************************/
 
-typedef char* (*device_info_string_f) (
+typedef char* (*libmtp_device_info_f) (
   LIBMTP_mtpdevice_t* );
 
 typedef enum ZZ_PLAINMTP(cursor_entity_e) {
@@ -101,7 +101,7 @@ PLAINMTP_EXTERN void ZZ_PLAINMTP(set_storage_values( entity_location_s* descript
 PLAINMTP_EXTERN cursor_entity_e ZZ_PLAINMTP(get_cursor_state( struct plainmtp_cursor_s* cursor,
   entity_location_s* OUT_descriptor ));
 PLAINMTP_EXTERN wchar_t* ZZ_PLAINMTP(make_device_info( LIBMTP_mtpdevice_t* socket,
-  device_info_string_f method ));
+  libmtp_device_info_f method ));
 PLAINMTP_EXTERN wchar_t* ZZ_PLAINMTP(make_storage_name( LIBMTP_devicestorage_t* values ));
 PLAINMTP_EXTERN wchar_t* ZZ_PLAINMTP(make_storage_unique_id( LIBMTP_devicestorage_t* storage,
   wchar_t** OUT_volume_string ));
