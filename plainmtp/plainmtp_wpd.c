@@ -203,6 +203,9 @@ PLAINMTP_INTERNAL IPortableDeviceKeyCollection* make_values_request(void) {
     hr = IPortableDeviceKeyCollection_Add( result, &WPD_OBJECT_NAME );
     if (FAILED(hr)) { goto failed; }
 
+    hr = IPortableDeviceKeyCollection_Add( result, &WPD_DEVICE_FRIENDLY_NAME );
+    if (FAILED(hr)) { goto failed; }
+
     hr = IPortableDeviceKeyCollection_Add( result, &WPD_OBJECT_DATE_MODIFIED );
     if (FAILED(hr)) { goto failed; }
   }
@@ -464,8 +467,6 @@ PLAINMTP_INTERNAL void wipe_object_image( zz_plainmtp_cursor_s* object ) {
   CoTaskMemFree( (void*)object->name );
 }}
 
-/* TODO: Consider trying more properties for name. Devices connected using Mass Storage Class
-  protocol may not report WPD_OBJECT_NAME for the root (DEVICE) object - e.g. Sony DSC-H50. */
 #define obtain_object_image ZZ_PLAINMTP(obtain_object_image)
 PLAINMTP_INTERNAL plainmtp_bool obtain_object_image( zz_plainmtp_cursor_s* object,
   IPortableDeviceValues* values
@@ -503,6 +504,7 @@ PLAINMTP_INTERNAL plainmtp_bool obtain_object_image( zz_plainmtp_cursor_s* objec
 
   (void)PropVariantClear( &propvar );
 
+  /* First of all, we prefer names that are similar to filesystem ones. */
   hr = IPortableDeviceValues_GetStringValue( values, &WPD_OBJECT_ORIGINAL_FILE_NAME, &tempstr );
   if (SUCCEEDED(hr)) { goto quit; }
 
@@ -510,7 +512,16 @@ PLAINMTP_INTERNAL plainmtp_bool obtain_object_image( zz_plainmtp_cursor_s* objec
   hr = IPortableDeviceValues_GetStringValue( values, &WPD_OBJECT_HINT_LOCATION_DISPLAY_NAME,
     &tempstr );
   if (SUCCEEDED(hr)) { goto quit; }
+
+  /* The most common and versatile property. */
   hr = IPortableDeviceValues_GetStringValue( values, &WPD_OBJECT_NAME, &tempstr );
+  if (SUCCEEDED(hr)) { goto quit; }
+
+  /* Next are special options for exceptional cases. Say, devices connected using the Mass Storage
+    Class protocol may not report WPD_OBJECT_NAME for the root (DEVICE) object - e.g. Sony DSC-H50.
+    NB: We don't check WPD_STORAGE_SERIAL_NUMBER and WPD_DEVICE_SERIAL_NUMBER because they're often
+    present with empty or invalid (garbage) string values instead of being simply missing. */
+  hr = IPortableDeviceValues_GetStringValue( values, &WPD_DEVICE_FRIENDLY_NAME, &tempstr );
   if (FAILED(hr)) { tempstr = NULL; }
 
 quit:
