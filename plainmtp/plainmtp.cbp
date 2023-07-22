@@ -48,6 +48,7 @@
 			<Add option="-Wall" />
 			<Add option="-std=iso9899:199409" />
 			<Add option="-save-temps=obj" />
+			<Add option="-DPLAINMTP_FALLBACK_WCSDUP" />
 		</Compiler>
 		<Linker>
 			<Add library="mtp" />
@@ -56,6 +57,12 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="common.c.h">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="fallbacks.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="fallbacks.c.h">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="global.i.h">
@@ -71,12 +78,6 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="utf8_wchar.c.h">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="wcsdup.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="wcsdup.c.h">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="wpd_puid.c">

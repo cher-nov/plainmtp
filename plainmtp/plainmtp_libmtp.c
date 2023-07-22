@@ -6,9 +6,9 @@
 
 #include <libmtp.h>
 
-#include "wcsdup.c.h"
 #include "utf8_wchar.c.h"
 #include "wpd_puid.c.h"
+#include "fallbacks.c.h"
 #include "common.c.h"
 
 /* NB: The code marked with the "SHARED MEMORY MOMENT" comment depends on the implicit assumption
@@ -177,7 +177,7 @@ static wchar_t* make_storage_name( LIBMTP_devicestorage_t* values ) {
     default: label = L"Reserved";
   }
 
-  return wcsdup( label );
+  return zz_plainmtp_wcsdup( label );
 }}
 
 static wchar_t* make_storage_unique_id( LIBMTP_devicestorage_t* storage,
@@ -343,11 +343,11 @@ static plainmtp_bool obtain_image_copy( struct zz_plainmtp_image_s* entity,
 ) {
   wchar_t* unique_id;
 {
-  unique_id = wcsdup( source->id );
+  unique_id = zz_plainmtp_wcsdup( source->id );
   if (unique_id == NULL) { return PLAINMTP_FALSE; }
   entity->id = unique_id;
 
-  if (source->name != NULL) { entity->name = wcsdup( source->name ); }
+  if (source->name != NULL) { entity->name = zz_plainmtp_wcsdup( source->name ); }
   entity->datetime = source->datetime;
 
   return PLAINMTP_TRUE;
@@ -435,7 +435,7 @@ static plainmtp_bool obtain_device_image( struct zz_plainmtp_image_s* entity,
 ) {
   wchar_t* unique_id;
 {
-  unique_id = wcsdup( wpd_root_persistent_id );
+  unique_id = zz_plainmtp_wcsdup( wpd_root_persistent_id );
   if (unique_id == NULL) { return PLAINMTP_FALSE; }
   entity->id = unique_id;
 
