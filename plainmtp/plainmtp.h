@@ -61,10 +61,10 @@ PLAINMTP_OPAQUE(struct plainmtp_context_s) {
   size_t count;
 
   /* BEWARE: All the next members AND their fields may be NULL! */
-  const wchar_t** ids;
-  const wchar_t** names;
-  const wchar_t** vendors;
-  const wchar_t** strings;
+  const wchar_t* const* ids;
+  const wchar_t* const* names;
+  const wchar_t* const* vendors;
+  const wchar_t* const* strings;
 } const plainmtp_context_s;
 
 /* Device handle. The non-struct 'const plainmtp_device_s' typename is reserved for future use. */

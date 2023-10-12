@@ -98,32 +98,44 @@ PLAINMTP_INTERNAL LPWSTR make_device_info( IPortableDeviceManager* wpd_manager, 
   return NULL;
 }}
 
-/* NB: We need this rather meaningless function because the C95 standard prohibits to copy a value
-  of type 'T*' into an object of type 'const T*' via a pointer of type 'T**', while at the same
-  time assigning them without an explicit typecast is permitted. So we're unable to just directly
-  pass a LPCWSTR buffer to the ::GetDevices() method that expects a LPWSTR one.
-  https://stackoverflow.com/questions/74370703/modify-pointer-to-const-variable-const-int-through-a-pointer-to-pointer-to
-  Seems like an arbitrary (i.e. unnecessarily restrictive) constraint of C95 at least. */
+/*
+  The implementation of this function assumes badly written ::GetDevices() and/or possible change
+  of the WPD manager state from another thread by meeting the following requirements:
+  1. On error, ::GetDevices() may not set 'wpd_device_count' to 0 or whatsoever.
+  2. Between calls of ::GetDevices(), 'wpd_device_count' may change without ::RefreshDeviceList().
+*/
 #define obtain_wpd_device_ids ZZ_PLAINMTP(obtain_wpd_device_ids)
-PLAINMTP_INTERNAL DWORD obtain_wpd_device_ids( IPortableDeviceManager* wpd_manager,
-  LPCWSTR* buffer, DWORD max_count _In_range_(1, max_count) /* suppress C6385 (shut up, MSVC) */
+PLAINMTP_INTERNAL HRESULT obtain_wpd_device_ids( IPortableDeviceManager* wpd_manager,
+  LPWSTR** OUT_device_ids, size_t* OUT_device_count
 ) {
   HRESULT hr;
   LPWSTR* wpd_device_ids;
-  DWORD i;
+  DWORD wpd_device_count = 0;
 {
-  wpd_device_ids = CoTaskMemAlloc( max_count * sizeof(*wpd_device_ids) );
-  if (wpd_device_ids == NULL) { return 0; }
+  hr = IPortableDeviceManager_GetDevices( wpd_manager, NULL, &wpd_device_count );
+  if (FAILED(hr)) { return hr; }
 
-  hr = IPortableDeviceManager_GetDevices( wpd_manager, wpd_device_ids, &max_count );
-  if (SUCCEEDED(hr)) {
-    for (i = 0; i < max_count; ++i) { buffer[i] = wpd_device_ids[i]; }
+  if (wpd_device_count > 0) {
+    wpd_device_ids = CoTaskMemAlloc( wpd_device_count * sizeof(*wpd_device_ids) );
+    if (wpd_device_ids == NULL) { return E_OUTOFMEMORY; }
+
+    hr = IPortableDeviceManager_GetDevices( wpd_manager, wpd_device_ids, &wpd_device_count );
+    if (FAILED(hr)) {
+      CoTaskMemFree( wpd_device_ids );
+      return hr;
+    }
+
+    if (wpd_device_count == 0) {
+      CoTaskMemFree( wpd_device_ids );
+      wpd_device_ids = NULL;
+    }
   } else {
-    max_count = 0;
+    wpd_device_ids = NULL;
   }
 
-  CoTaskMemFree( wpd_device_ids );
-  return max_count;
+  *OUT_device_ids = wpd_device_ids;
+  *OUT_device_count = wpd_device_count;
+  return hr;
 }}
 
 /* NB: This will successfully return an empty string in case of invalid PUID specified. */
@@ -223,33 +235,33 @@ PLAINMTP_INTERNAL struct plainmtp_context_s* make_library_context(void) {
   IPortableDeviceManager* wpd_manager;
   IPortableDeviceKeyCollection* wpd_values_request;
   struct plainmtp_context_s* context = NULL;
-  DWORD wpd_device_count = 0, i;
+  LPWSTR* device_ids_buffer;
   LPCWSTR *wpd_device_ids, *wpd_device_names, *wpd_device_vendors, *wpd_device_strings;
+  size_t device_count, i;
 {
   hr = CoCreateInstance( &CLSID_PortableDeviceManager, NULL, CLSCTX_INPROC_SERVER,
     &IID_IPortableDeviceManager, &wpd_manager );
   if (FAILED(hr)) { goto failed; }
 
-  hr = IPortableDeviceManager_GetDevices( wpd_manager, NULL, &wpd_device_count );
+  hr = obtain_wpd_device_ids( wpd_manager, &device_ids_buffer, &device_count );
   if (FAILED(hr)) { goto failed_main; }
 
-  wpd_values_request = make_values_request();
-  if (wpd_values_request == NULL) { goto failed_main; }
-
-  context = CoTaskMemAlloc( sizeof(*context) + 4 * (size_t)wpd_device_count *
-    sizeof(*wpd_device_ids) );
+  context = CoTaskMemAlloc( sizeof(*context) + 4 * device_count * sizeof(*wpd_device_ids) );
   if (context == NULL) { goto failed_full; }
 
-  if ( wpd_device_count > 0 ) {
+  if ( device_count == 0 ) {
+    wpd_device_ids = NULL;
+    wpd_device_names = NULL;
+    wpd_device_vendors = NULL;
+    wpd_device_strings = NULL;
+  } else {
     wpd_device_ids = (LPCWSTR*)(context + 1);
-    wpd_device_count = obtain_wpd_device_ids( wpd_manager, wpd_device_ids, wpd_device_count );
-    if (wpd_device_count == 0) { goto failed_full; }
+    wpd_device_names = wpd_device_ids + device_count;
+    wpd_device_vendors = wpd_device_names + device_count;
+    wpd_device_strings = wpd_device_vendors + device_count;
 
-    wpd_device_names = wpd_device_ids + wpd_device_count;
-    wpd_device_vendors = wpd_device_names + wpd_device_count;
-    wpd_device_strings = wpd_device_vendors + wpd_device_count;
-
-    for (i = 0; i < wpd_device_count; ++i) {
+    for (i = 0; i < device_count; ++i) {
+      wpd_device_ids[i] = device_ids_buffer[i];  /* proclaims LPCWSTR as the "effective type" */
       wpd_device_names[i] = make_device_info( wpd_manager, wpd_device_ids[i],
         wpd_manager->lpVtbl->GetDeviceFriendlyName );
       wpd_device_vendors[i] = make_device_info( wpd_manager, wpd_device_ids[i],
@@ -257,17 +269,17 @@ PLAINMTP_INTERNAL struct plainmtp_context_s* make_library_context(void) {
       wpd_device_strings[i] = make_device_info( wpd_manager, wpd_device_ids[i],
         wpd_manager->lpVtbl->GetDeviceDescription );
     }
-  } else {
-    wpd_device_ids = NULL;
-    wpd_device_names = NULL;
-    wpd_device_vendors = NULL;
-    wpd_device_strings = NULL;
+
+    CoTaskMemFree( device_ids_buffer );
   }
+
+  wpd_values_request = make_values_request();
+  if (wpd_values_request == NULL) { goto failed_main; }
 
   context->wpd_manager = wpd_manager;
   context->wpd_values_request = wpd_values_request;
 
-  context->device_list.count = wpd_device_count;
+  context->device_list.count = device_count;
   context->device_list.ids = wpd_device_ids;
   context->device_list.names = wpd_device_names;
   context->device_list.vendors = wpd_device_vendors;
@@ -276,10 +288,10 @@ PLAINMTP_INTERNAL struct plainmtp_context_s* make_library_context(void) {
   return context;
 
 failed_full:
-  CoTaskMemFree( context );
-  IUnknown_Release( wpd_values_request );
+  CoTaskMemFree( device_ids_buffer );
 
 failed_main:
+  CoTaskMemFree( context );
   IUnknown_Release( wpd_manager );
 
 failed:

@@ -72,8 +72,8 @@ PLAINMTP_SUBCLASS( struct plainmtp_cursor_s, current_object ) (
 
 PLAINMTP_EXTERN LPWSTR ZZ_PLAINMTP(make_device_info( IPortableDeviceManager* wpd_manager,
   LPCWSTR device_id, device_info_string_f method ));
-PLAINMTP_EXTERN DWORD ZZ_PLAINMTP(obtain_wpd_device_ids( IPortableDeviceManager* wpd_manager,
-  LPCWSTR* buffer, DWORD max_count ));
+PLAINMTP_EXTERN HRESULT ZZ_PLAINMTP(obtain_wpd_device_ids( IPortableDeviceManager* wpd_manager,
+  LPWSTR** OUT_device_ids, size_t* OUT_device_count ));
 PLAINMTP_EXTERN LPWSTR ZZ_PLAINMTP(make_object_handle_from_puid(
   IPortableDeviceContent* wpd_content, LPCWSTR object_puid ));
 
