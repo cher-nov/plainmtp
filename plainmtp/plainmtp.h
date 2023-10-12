@@ -58,13 +58,20 @@ typedef void* (*plainmtp_data_f)
 /* Library context. Pointer to it can be typecast to 'plainmtp_context_s*' to access information
   about available devices connected to the machine. */
 PLAINMTP_OPAQUE(struct plainmtp_context_s) {
-  size_t count;
+  struct {
+    size_t count;
 
-  /* BEWARE: All the next members AND their fields may be NULL! */
-  const wchar_t* const* ids;
-  const wchar_t* const* names;
-  const wchar_t* const* vendors;
-  const wchar_t* const* strings;
+    /* BEWARE: All the next members AND their fields may be NULL! */
+    const wchar_t* const* keys;
+    const wchar_t* const* names;
+    const wchar_t* const* captions;
+    const wchar_t* const* vendors;
+  } endpoints;
+
+  struct {
+    plainmtp_bool active_mode_receive;
+    plainmtp_bool active_mode_transfer;
+  } features;
 } const plainmtp_context_s;
 
 /* Device handle. The non-struct 'const plainmtp_device_s' typename is reserved for future use. */
@@ -113,8 +120,8 @@ extern struct plainmtp_device_s* plainmtp_device_start
   /* A pointer to the operating context. */
   struct plainmtp_context_s* context,
 
-  /* Index of the device in the context registry. */
-  size_t device_index,
+  /* Index of the device endpoint in the context registry. */
+  size_t endpoint_index,
 
   /* Flag to request read-only (True) or read-write (False) access. */
   plainmtp_bool read_only

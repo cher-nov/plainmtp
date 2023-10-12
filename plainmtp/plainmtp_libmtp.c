@@ -62,9 +62,9 @@ PLAINMTP_INTERNAL cursor_entity_e get_cursor_state( struct plainmtp_cursor_s* cu
   return result;
 }}
 
-#define make_device_info ZZ_PLAINMTP(make_device_info)
-PLAINMTP_INTERNAL wchar_t* make_device_info( LIBMTP_mtpdevice_t* socket,
-  libmtp_device_info_f method
+#define make_device_string ZZ_PLAINMTP(make_device_string)
+PLAINMTP_INTERNAL wchar_t* make_device_string( LIBMTP_mtpdevice_t* socket,
+  libmtp_device_string_f method
 ) {
   wchar_t* result;
   char* utf8_string;
@@ -148,7 +148,7 @@ struct plainmtp_context_s* plainmtp_startup(void) {
   LIBMTP_raw_device_t* libmtp_hardware_list = NULL;
   struct plainmtp_context_s* context;
   int libmtp_device_count, i;
-  const wchar_t **libmtp_device_names, **libmtp_device_vendors, **libmtp_device_strings;
+  const wchar_t **libmtp_device_names, **libmtp_device_captions, **libmtp_device_vendors;
 {
   if (!is_libmtp_initialized) {
     LIBMTP_Init();
@@ -171,37 +171,39 @@ struct plainmtp_context_s* plainmtp_startup(void) {
 
   if ( libmtp_device_count > 0 ) {
     libmtp_device_names = (const wchar_t**)(context + 1);
-    libmtp_device_vendors = libmtp_device_names + libmtp_device_count;
-    libmtp_device_strings = libmtp_device_vendors + libmtp_device_count;
+    libmtp_device_captions = libmtp_device_names + libmtp_device_count;
+    libmtp_device_vendors = libmtp_device_captions + libmtp_device_count;
 
     for (i = 0; i < libmtp_device_count; ++i) {
       libmtp_socket = LIBMTP_Open_Raw_Device_Uncached( &libmtp_hardware_list[i] );
       if (libmtp_socket == NULL) {
         libmtp_device_names[i] = NULL;
+        libmtp_device_captions[i] = NULL;
         libmtp_device_vendors[i] = NULL;
-        libmtp_device_strings[i] = NULL;
         continue;
       }
 
-      libmtp_device_names[i] = make_device_info( libmtp_socket, LIBMTP_Get_Friendlyname );
-      libmtp_device_vendors[i] = make_device_info( libmtp_socket, LIBMTP_Get_Manufacturername );
-      libmtp_device_strings[i] = make_device_info( libmtp_socket, LIBMTP_Get_Modelname );
+      libmtp_device_names[i] = make_device_string( libmtp_socket, LIBMTP_Get_Friendlyname );
+      libmtp_device_captions[i] = make_device_string( libmtp_socket, LIBMTP_Get_Modelname );
+      libmtp_device_vendors[i] = make_device_string( libmtp_socket, LIBMTP_Get_Manufacturername );
       LIBMTP_Release_Device( libmtp_socket );
     }
   } else {
     libmtp_device_names = NULL;
+    libmtp_device_captions = NULL;
     libmtp_device_vendors = NULL;
-    libmtp_device_strings = NULL;
   }
 
   context->hardware_list = libmtp_hardware_list;
 
-  context->device_list.count = libmtp_device_count;
-  context->device_list.ids = NULL;
-  context->device_list.names = libmtp_device_names;
-  context->device_list.vendors = libmtp_device_vendors;
-  context->device_list.strings = libmtp_device_strings;
+  context->origin.endpoints.count = libmtp_device_count;
+  context->origin.endpoints.keys = NULL;
+  context->origin.endpoints.names = libmtp_device_names;
+  context->origin.endpoints.captions = libmtp_device_captions;
+  context->origin.endpoints.vendors = libmtp_device_vendors;
 
+  context->origin.features.active_mode_receive = PLAINMTP_FALSE;
+  context->origin.features.active_mode_transfer = PLAINMTP_FALSE;
   return context;
 
 failed:
@@ -214,10 +216,10 @@ void plainmtp_shutdown( struct plainmtp_context_s* context ) {
 {
   assert( context != NULL );
 
-  for (i = 0; i < context->device_list.count; ++i) {
-    free( (void*)context->device_list.names[i] );
-    free( (void*)context->device_list.vendors[i] );
-    free( (void*)context->device_list.strings[i] );
+  for (i = 0; i < context->origin.endpoints.count; ++i) {
+    free( (void*)context->origin.endpoints.names[i] );
+    free( (void*)context->origin.endpoints.captions[i] );
+    free( (void*)context->origin.endpoints.vendors[i] );
   }
 
   LIBMTP_FreeMemory( context->hardware_list );
@@ -225,12 +227,12 @@ void plainmtp_shutdown( struct plainmtp_context_s* context ) {
 }}
 
 struct plainmtp_device_s* plainmtp_device_start( struct plainmtp_context_s* context,
-  size_t device_index, plainmtp_bool read_only
+  size_t endpoint_index, plainmtp_bool read_only
 ) {
   struct plainmtp_device_s* device;
 {
   assert( context != NULL );
-  assert( device_index < context->device_list.count );
+  assert( endpoint_index < context->origin.endpoints.count );
 
   device = malloc( sizeof(*device) );
   if (device == NULL) { goto failed; }
@@ -240,7 +242,8 @@ struct plainmtp_device_s* plainmtp_device_start( struct plainmtp_context_s* cont
     WPD, for example, apparently does). Since we don't process them too (by design), this forces us
     to use the uncached mode to achieve WPD-like behavior with libmtp. */
 
-  device->libmtp_socket = LIBMTP_Open_Raw_Device_Uncached( &context->hardware_list[device_index] );
+  device->libmtp_socket = LIBMTP_Open_Raw_Device_Uncached(
+    &context->hardware_list[endpoint_index] );
   if (device->libmtp_socket == NULL) { goto failed; }
 
   device->read_only = read_only;
@@ -366,7 +369,7 @@ PLAINMTP_INTERNAL plainmtp_bool obtain_device_image( zz_plainmtp_cursor_s* entit
   if (unique_id == NULL) { return PLAINMTP_FALSE; }
   entity->id = unique_id;
 
-  entity->name = make_device_info( socket, LIBMTP_Get_Modelname );
+  entity->name = make_device_string( socket, LIBMTP_Get_Modelname );
   entity->datetime.tm_mday = 0;  /* There's no datetime information for the device root. */
 
   return PLAINMTP_TRUE;

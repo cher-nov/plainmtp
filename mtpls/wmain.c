@@ -73,17 +73,24 @@ static int command_enumerate( struct plainmtp_context_s* context ) {
   size_t i;
   plainmtp_context_s* const registry = (plainmtp_context_s*)context;
 {
-  PUT_TEXT( "Devices available: %lu\n"), (unsigned long)registry->count );
-  for (i = 0; i < registry->count; ++i) {
+  PUT_TEXT( "Devices available: %lu\n"), (unsigned long)registry->endpoints.count );
+
+# define PRINT_ENDPOINT( Strings, Format ) \
+  if (registry->endpoints.Strings != NULL) do { \
+    PUT_TEXT( Format), WSNN(registry->endpoints.Strings[i]) ); \
+  } while (0)
+  
+  for (i = 0; i < registry->endpoints.count; ++i) {
     PUT_TEXT( "\n%lu\t"), (unsigned long)i );
-    if (registry->names != NULL) { PUT_TEXT( "%-31ls "), WSNN(registry->names[i]) ); }
-    if (registry->vendors != NULL) { PUT_TEXT( "%-31ls "), WSNN(registry->vendors[i]) ); }
-    if (registry->strings != NULL) { PUT_TEXT( "%-31ls "), WSNN(registry->strings[i]) ); }
-    if (registry->ids != NULL) { PUT_TEXT( "\n\t%ls\n"), WSNN(registry->ids[i]) ); }
+    PRINT_ENDPOINT( names, "%-31ls " );
+    PRINT_ENDPOINT( vendors, "%-31ls " );
+    PRINT_ENDPOINT( captions, "%-31ls " );
+    PRINT_ENDPOINT( keys, "\n\t%ls\n" );
   }
 
   PUT_CHAR('\n');
   return EXIT_SUCCESS;
+# undef PRINT_ENDPOINT
 }}
 
 static int command_list( struct plainmtp_cursor_s* cursor, struct plainmtp_device_s* device ) {
@@ -259,9 +266,9 @@ int wmain( int argc, wchar_t* argv[] ) {
   /* This makes printf() et al. understand what is A Wide String at least on Windows. Fuck it. */
   (void)setlocale( LC_ALL, "" );
 
-# define ASSERT_CLEANUP( condition, message ) \
-  if (condition) do { \
-    PUT_LINE( "ERROR: " message ); \
+# define ASSERT_CLEANUP( Condition, Message ) \
+  if (Condition) do { \
+    PUT_LINE( "ERROR: " Message ); \
     goto cleanup; \
   } while(0)
 
@@ -308,7 +315,8 @@ int wmain( int argc, wchar_t* argv[] ) {
 
   ASSERT_CLEANUP( argc < limit, "not enough arguments" );
   ASSERT_CLEANUP( swscanf(argv[2], L"%u%n", &device_index, &consumed) < 1, "wrong DEVICE_INDEX" );
-  ASSERT_CLEANUP( device_index >= ((plainmtp_context_s*)context)->count, "no such DEVICE_INDEX" );
+  ASSERT_CLEANUP( device_index >= ((plainmtp_context_s*)context)->endpoints.count,
+    "no such DEVICE_INDEX" );
 
   argv[2] += consumed;
   base_object_id = (*argv[2] == L':') ? (argv[2]+1) : NULL;

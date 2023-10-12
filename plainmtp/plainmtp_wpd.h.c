@@ -32,12 +32,12 @@
 #endif
 /**************************************************************************************************/
 
-typedef HRESULT (STDMETHODCALLTYPE *device_info_string_f) (
+typedef HRESULT (STDMETHODCALLTYPE *wpd_device_string_f) (
   IPortableDeviceManager*, LPCWSTR, WCHAR*, DWORD* );
 
 enum { FILE_SHARE_EXCLUSIVE = 0 };
 
-PLAINMTP_SUBCLASS( struct plainmtp_context_s, device_list ) (
+PLAINMTP_SUBCLASS( struct plainmtp_context_s, origin ) (
   IPortableDeviceManager* wpd_manager;
   IPortableDeviceKeyCollection* wpd_values_request;
 );
@@ -70,8 +70,8 @@ PLAINMTP_SUBCLASS( struct plainmtp_cursor_s, current_object ) (
 /**************************************************************************************************/
 #ifndef CC_PLAINMTP_NO_INTERNAL_API
 
-PLAINMTP_EXTERN LPWSTR ZZ_PLAINMTP(make_device_info( IPortableDeviceManager* wpd_manager,
-  LPCWSTR device_id, device_info_string_f method ));
+PLAINMTP_EXTERN LPWSTR ZZ_PLAINMTP(make_device_string( IPortableDeviceManager* wpd_manager,
+  LPCWSTR device_id, wpd_device_string_f method ));
 PLAINMTP_EXTERN HRESULT ZZ_PLAINMTP(obtain_wpd_device_ids( IPortableDeviceManager* wpd_manager,
   LPWSTR** OUT_device_ids, size_t* OUT_device_count ));
 PLAINMTP_EXTERN LPWSTR ZZ_PLAINMTP(make_object_handle_from_puid(

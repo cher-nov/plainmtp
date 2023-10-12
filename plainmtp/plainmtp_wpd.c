@@ -78,9 +78,9 @@
   ...to be continued.
 */
 
-#define make_device_info ZZ_PLAINMTP(make_device_info)
-PLAINMTP_INTERNAL LPWSTR make_device_info( IPortableDeviceManager* wpd_manager, LPCWSTR device_id,
-  device_info_string_f method
+#define make_device_string ZZ_PLAINMTP(make_device_string)
+PLAINMTP_INTERNAL LPWSTR make_device_string( IPortableDeviceManager* wpd_manager,
+  LPCWSTR device_id, wpd_device_string_f method
 ) {
   WCHAR* result;
   HRESULT hr;
@@ -236,7 +236,7 @@ PLAINMTP_INTERNAL struct plainmtp_context_s* make_library_context(void) {
   IPortableDeviceKeyCollection* wpd_values_request;
   struct plainmtp_context_s* context = NULL;
   LPWSTR* device_ids_buffer;
-  LPCWSTR *wpd_device_ids, *wpd_device_names, *wpd_device_vendors, *wpd_device_strings;
+  LPCWSTR *wpd_device_ids, *wpd_device_names, *wpd_device_captions, *wpd_device_vendors;
   size_t device_count, i;
 {
   hr = CoCreateInstance( &CLSID_PortableDeviceManager, NULL, CLSCTX_INPROC_SERVER,
@@ -252,22 +252,22 @@ PLAINMTP_INTERNAL struct plainmtp_context_s* make_library_context(void) {
   if ( device_count == 0 ) {
     wpd_device_ids = NULL;
     wpd_device_names = NULL;
+    wpd_device_captions = NULL;
     wpd_device_vendors = NULL;
-    wpd_device_strings = NULL;
   } else {
     wpd_device_ids = (LPCWSTR*)(context + 1);
     wpd_device_names = wpd_device_ids + device_count;
-    wpd_device_vendors = wpd_device_names + device_count;
-    wpd_device_strings = wpd_device_vendors + device_count;
+    wpd_device_captions = wpd_device_names + device_count;
+    wpd_device_vendors = wpd_device_captions + device_count;
 
     for (i = 0; i < device_count; ++i) {
       wpd_device_ids[i] = device_ids_buffer[i];  /* proclaims LPCWSTR as the "effective type" */
-      wpd_device_names[i] = make_device_info( wpd_manager, wpd_device_ids[i],
+      wpd_device_names[i] = make_device_string( wpd_manager, wpd_device_ids[i],
         wpd_manager->lpVtbl->GetDeviceFriendlyName );
-      wpd_device_vendors[i] = make_device_info( wpd_manager, wpd_device_ids[i],
-        wpd_manager->lpVtbl->GetDeviceManufacturer );
-      wpd_device_strings[i] = make_device_info( wpd_manager, wpd_device_ids[i],
+      wpd_device_captions[i] = make_device_string( wpd_manager, wpd_device_ids[i],
         wpd_manager->lpVtbl->GetDeviceDescription );
+      wpd_device_vendors[i] = make_device_string( wpd_manager, wpd_device_ids[i],
+        wpd_manager->lpVtbl->GetDeviceManufacturer );
     }
 
     CoTaskMemFree( device_ids_buffer );
@@ -279,12 +279,14 @@ PLAINMTP_INTERNAL struct plainmtp_context_s* make_library_context(void) {
   context->wpd_manager = wpd_manager;
   context->wpd_values_request = wpd_values_request;
 
-  context->device_list.count = device_count;
-  context->device_list.ids = wpd_device_ids;
-  context->device_list.names = wpd_device_names;
-  context->device_list.vendors = wpd_device_vendors;
-  context->device_list.strings = wpd_device_strings;
+  context->origin.endpoints.count = device_count;
+  context->origin.endpoints.keys = wpd_device_ids;
+  context->origin.endpoints.names = wpd_device_names;
+  context->origin.endpoints.captions = wpd_device_captions;
+  context->origin.endpoints.vendors = wpd_device_vendors;
 
+  context->origin.features.active_mode_receive = PLAINMTP_TRUE;
+  context->origin.features.active_mode_transfer = PLAINMTP_TRUE;
   return context;
 
 failed_full:
@@ -381,11 +383,11 @@ void plainmtp_shutdown( struct plainmtp_context_s* context ) {
     https://docs.microsoft.com/en-us/windows/win32/wpd_sdk/freeportabledevicepnpids
   */
 
-  for (i = 0; i < context->device_list.count; ++i) {
-    CoTaskMemFree( (void*)context->device_list.ids[i] );
-    CoTaskMemFree( (void*)context->device_list.names[i] );
-    CoTaskMemFree( (void*)context->device_list.vendors[i] );
-    CoTaskMemFree( (void*)context->device_list.strings[i] );
+  for (i = 0; i < context->origin.endpoints.count; ++i) {
+    CoTaskMemFree( (void*)context->origin.endpoints.keys[i] );
+    CoTaskMemFree( (void*)context->origin.endpoints.names[i] );
+    CoTaskMemFree( (void*)context->origin.endpoints.captions[i] );
+    CoTaskMemFree( (void*)context->origin.endpoints.vendors[i] );
   }
 
   IUnknown_Release( context->wpd_manager );
@@ -396,14 +398,14 @@ void plainmtp_shutdown( struct plainmtp_context_s* context ) {
 }}
 
 struct plainmtp_device_s* plainmtp_device_start( struct plainmtp_context_s* context,
-  size_t device_index, plainmtp_bool read_only
+  size_t endpoint_index, plainmtp_bool read_only
 ) {
   HRESULT hr;
   struct plainmtp_device_s* device = NULL;  /* STAGER requires all variables to be initialized. */
   int i;
 {
   assert( context != NULL );
-  assert( device_index < context->device_list.count );
+  assert( endpoint_index < context->origin.endpoints.count );
 
   STAGER_BLOCK(i) {
     STAGER_PHASE(1, {
@@ -414,7 +416,7 @@ struct plainmtp_device_s* plainmtp_device_start( struct plainmtp_context_s* cont
     });
 
     STAGER_PHASE(2, {
-      device->wpd_socket = make_connection_socket( context->device_list.ids[device_index],
+      device->wpd_socket = make_connection_socket( context->origin.endpoints.keys[endpoint_index],
         read_only );
       if (device->wpd_socket == NULL) break;
     },{
